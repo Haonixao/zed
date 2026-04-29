@@ -1,7 +1,7 @@
 use chrono::Local;
 use collections::HashMap;
 use gpui::AppContext;
-use gpui::WeakEntity; // уже должен быть, но на всякий
+use gpui::WeakEntity;
 use gpui::*;
 use gpui::{App, AsyncApp, Context};
 use project::Project;
@@ -12,7 +12,7 @@ use std::process::Command;
 use task::{
     HideStrategy, RevealStrategy, RevealTarget, SaveStrategy, Shell, SpawnInTerminal, TaskId,
 };
-use terminal::Terminal; // ← обязательно
+use terminal::Terminal;
 use terminal_view::TerminalView;
 use terminal_view::terminal_panel::TerminalPanel;
 use ui::{Button, Color, Icon, IconButton, IconName, IconSize, Label, LabelSize, prelude::*};
@@ -165,7 +165,7 @@ impl DockerPanel {
                     .filter_map(|line| serde_json::from_str::<Image>(line).ok())
                     .collect();
             }
-            _ => {} // можно добавить обработку ошибки позже
+            _ => {}
         }
 
         // === Volumes ===
@@ -185,7 +185,7 @@ impl DockerPanel {
                     .filter_map(|line| serde_json::from_str::<Volume>(line).ok())
                     .collect();
             }
-            _ => {} // можно добавить обработку ошибки позже
+            _ => {}
         }
 
         self.status = format!("Обновлено {}", Local::now().format("%H:%M:%S"));
@@ -206,12 +206,12 @@ impl DockerPanel {
             "🐳 [Docker Logs] show_logs вызван для контейнера: {}",
             short_id
         );
-    
+
         let Some(workspace) = self.workspace.upgrade() else {
             eprintln!("❌ [Docker Logs] Не удалось upgrade workspace");
             return;
         };
-    
+
         let spawn_task = SpawnInTerminal {
             id: TaskId(format!("docker-logs-{}", short_id)),
             full_label: format!("🐳 Logs — {}", short_id),
@@ -223,53 +223,47 @@ impl DockerPanel {
             env: HashMap::default(),
             use_new_terminal: true,
             allow_concurrent_runs: true,
-            reveal: RevealStrategy::Always,      // ← лучше Always при запуске из панели
+            reveal: RevealStrategy::Always,
             reveal_target: RevealTarget::Dock,
             hide: HideStrategy::Never,
             shell: Shell::System,
-            show_summary: true,                  // ← чтобы видеть ошибки и exit code
+            show_summary: true,
             show_command: true,
             show_rerun: true,
             save: SaveStrategy::None,
         };
-    
+
         eprintln!("✅ [Docker Logs] SpawnInTerminal создан");
-    
-        // Запускаем задачу и сразу получаем Task
+
         let task_handle = workspace.update(cx, |workspace, cx| {
             let _ = workspace.toggle_panel_focus::<TerminalPanel>(window, cx);
-    
-            if let Some(terminal_panel) = workspace.panel::<TerminalPanel>(cx) {
+
+        if let Some(terminal_panel) = workspace.panel::<TerminalPanel>(cx) {
                 terminal_panel.update(cx, |terminal_panel, cx| {
-                    terminal_panel.add_terminal_task(
-                        spawn_task,
-                        RevealStrategy::Always,
-                        window,
-                        cx,
-                    )
-                })
-            } else {
-                // fallback
-                Task::ready(Err(anyhow::anyhow!("TerminalPanel not found")))
-            }
-        });
-    
-        // Правильный spawn для GPUI
+                    terminal_panel.add_terminal_task(spawn_task, RevealStrategy::Always, window, cx)
+                })spawn_task, RevealStrategy::Always, window, cx
+
         cx.spawn({
-            let task_handle = task_handle; // переносим в замыкание
+            let task_handle = task_handle;
             move |_this: WeakEntity<Self>, _cx: &mut AsyncApp| async move {
                 match task_handle.await {
                     Ok(weak_terminal) => {
-                        eprintln!("✅ [Docker Logs] Терминал успешно создан: {:?}", weak_terminal);
+                    eprintln!(
+                            "✅ [Docker Logs] Терминал успешно создан: {:?}",
+                            weak_terminal
+                        );
                     }
                     Err(e) => {
                         eprintln!("❌ [Docker Logs] Ошибка при создании терминала: {:?}", e);
                     }
+
+                            weak_terminal
+
                 }
             }
         })
         .detach();
-    
+
         eprintln!("🏁 [Docker Logs] show_logs завершён");
     }
 }
@@ -302,8 +296,8 @@ impl Render for DockerPanel {
             .child(
                 div()
                     .id("docker-scroll-area")
-                    .flex_1() // занимает всё оставшееся место
-                    .overflow_y_scroll() // ← вот и весь скроллинг
+                    .flex_1()
+                    .overflow_y_scroll()
                     .child(
                         v_flex()
                             .gap_3()
@@ -558,7 +552,6 @@ impl Render for DockerPanel {
                                                     ),
                                             )
                                             .child(
-                                                // Строка кнопок (как у контейнеров)
                                                 h_flex().gap_1().child(
                                                     IconButton::new(
                                                         format!("delete-image-{}", short_id),
@@ -711,7 +704,7 @@ pub fn init(cx: &mut App) {
             },
         );
 
-        let workspace_entity = cx.entity(); // ← текущий workspace
+        let workspace_entity = cx.entity();
         let panel =
             cx.new(|cx| DockerPanel::new(cx, window.as_mut().unwrap(), workspace_entity.clone()));
         workspace.add_panel(panel, window.as_mut().unwrap(), cx);
