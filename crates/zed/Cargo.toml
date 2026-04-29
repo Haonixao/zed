@@ -63,6 +63,7 @@ path = "src/visual_test_runner.rs"
 required-features = ["visual-tests"]
 
 [dependencies]
+docker_panel = { workspace = true }
 acp_tools.workspace = true
 activity_indicator.workspace = true
 agent.workspace = true

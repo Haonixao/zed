@@ -5051,6 +5051,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "docker_panel"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "collections",
+ "editor",
+ "gpui",
+ "project",
+ "serde",
+ "serde_json",
+ "task",
+ "terminal",
+ "terminal_view",
+ "ui",
+ "util",
+ "workspace",
+]
+
+[[package]]
 name = "docs_preprocessor"
 version = "0.1.0"
 dependencies = [
@@ -22405,6 +22425,7 @@ dependencies = [
  "debugger_ui",
  "dev_container",
  "diagnostics",
+ "docker_panel",
  "edit_prediction",
  "edit_prediction_ui",
  "editor",

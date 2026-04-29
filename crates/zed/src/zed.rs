@@ -146,6 +146,8 @@ actions!(
     ]
 );
 
+use docker_panel;
+
 pub fn init(cx: &mut App) {
     #[cfg(target_os = "macos")]
     cx.on_action(|_: &Hide, cx| cx.hide());
@@ -280,6 +282,7 @@ pub fn init(cx: &mut App) {
     .on_action(|_: &About, cx| {
         open_about_window(cx);
     });
+    docker_panel::init(cx);
 }
 
 fn bind_on_window_closed(cx: &mut App) -> Option<gpui::Subscription> {

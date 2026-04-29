@@ -1,0 +1,23 @@
+[package]
+name = "docker_panel"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/docker_panel.rs"
+
+[dependencies]
+gpui = { workspace = true }
+workspace = { workspace = true }
+ui = { workspace = true }
+util = { workspace = true }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+editor = { workspace = true }
+project = { workspace = true }
+terminal = { workspace = true }
+terminal_view = { workspace = true }
+task = { workspace = true }
+collections = { workspace = true }
