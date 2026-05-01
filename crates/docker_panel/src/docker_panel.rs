@@ -1,19 +1,15 @@
 use chrono::Local;
 use collections::HashMap;
 use gpui::AppContext;
-use gpui::WeakEntity;
+use gpui::WeakEntity; // уже должен быть, но на всякий
 use gpui::*;
 use gpui::{App, AsyncApp, Context};
-use project::Project;
 use serde::Deserialize;
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
-use std::process::Command;
 use task::{
     HideStrategy, RevealStrategy, RevealTarget, SaveStrategy, Shell, SpawnInTerminal, TaskId,
 };
-use terminal::Terminal;
-use terminal_view::TerminalView;
 use terminal_view::terminal_panel::TerminalPanel;
 use ui::{Button, Color, Icon, IconButton, IconName, IconSize, Label, LabelSize, prelude::*};
 use workspace::Workspace;
@@ -238,17 +234,21 @@ impl DockerPanel {
         let task_handle = workspace.update(cx, |workspace, cx| {
             let _ = workspace.toggle_panel_focus::<TerminalPanel>(window, cx);
 
-        if let Some(terminal_panel) = workspace.panel::<TerminalPanel>(cx) {
+            if let Some(terminal_panel) = workspace.panel::<TerminalPanel>(cx) {
                 terminal_panel.update(cx, |terminal_panel, cx| {
                     terminal_panel.add_terminal_task(spawn_task, RevealStrategy::Always, window, cx)
-                })spawn_task, RevealStrategy::Always, window, cx
+                })
+            } else {
+                Task::ready(Err(anyhow::anyhow!("TerminalPanel not found")))
+            }
+        });
 
         cx.spawn({
             let task_handle = task_handle;
             move |_this: WeakEntity<Self>, _cx: &mut AsyncApp| async move {
                 match task_handle.await {
                     Ok(weak_terminal) => {
-                    eprintln!(
+                        eprintln!(
                             "✅ [Docker Logs] Терминал успешно создан: {:?}",
                             weak_terminal
                         );
@@ -256,9 +256,6 @@ impl DockerPanel {
                     Err(e) => {
                         eprintln!("❌ [Docker Logs] Ошибка при создании терминала: {:?}", e);
                     }
-
-                            weak_terminal
-
                 }
             }
         })
@@ -292,7 +289,6 @@ impl Render for DockerPanel {
                     .color(Color::Muted)
                     .size(LabelSize::Small),
             )
-            // ==================== СКРОЛЛИРУЕМАЯ ОБЛАСТЬ ====================
             .child(
                 div()
                     .id("docker-scroll-area")
@@ -532,12 +528,10 @@ impl Render for DockerPanel {
                                             .border_color(cx.theme().colors().border)
                                             .gap_2()
                                             .child(
-                                                // Название образа
                                                 Label::new(&display_name)
                                                     .weight(FontWeight::MEDIUM),
                                             )
                                             .child(
-                                                // ID + размер
                                                 h_flex()
                                                     .gap_2()
                                                     .child(
@@ -609,11 +603,6 @@ impl Render for DockerPanel {
                             .when(self.volumes_expanded, |this| {
                                 this.child(v_flex().gap_2().children(self.volumes.iter().map(
                                     |vol| {
-                                        let short_name = if vol.name.len() > 20 {
-                                            format!("{}…", &vol.name[..17])
-                                        } else {
-                                            vol.name.clone()
-                                        };
 
                                         v_flex()
                                             .id(format!("volume-{}", vol.name))
