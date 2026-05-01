@@ -54,6 +54,7 @@ members = [
     "crates/dev_container",
     "crates/diagnostics",
     "crates/docker_panel",
+    "crates/sql_api_explorer",
     "crates/docs_preprocessor",
     "crates/edit_prediction",
     "crates/edit_prediction_cli",
@@ -493,6 +494,7 @@ zlog_settings = { path = "crates/zlog_settings" }
 ztracing = { path = "crates/ztracing" }
 ztracing_macro = { path = "crates/ztracing_macro" }
 docker_panel = { path = "crates/docker_panel" }
+sql_api_explorer = { path = "crates/sql_api_explorer" }
 
 #
 # External crates

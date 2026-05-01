@@ -1,0 +1,20 @@
+[package]
+name = "sql_api_explorer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+gpui = { workspace = true }
+workspace = { workspace = true }
+ui = { workspace = true }
+anyhow = { workspace = true }
+base64 = "0.22"
+http_client = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+ui_input = { workspace = true }
+futures-lite = "2"
