@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use ui::{Button, IconButton, IconName, IconSize, Label, LabelSize, prelude::*};
 use ui_input::InputField;
+use uuid::Uuid;
 
 use crate::models::*;
 use base64::prelude::*;
@@ -13,6 +14,358 @@ use serde_json::json;
 
 use workspace::Workspace;
 use workspace::dock::{DockPosition, Panel, PanelEvent};
+
+fn escape_html(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+struct HtmlThemeColors {
+    background: String,
+    editor_background: String,
+    border: String,
+    text: String,
+    accent: String,
+}
+
+fn hsla_to_hex(hsla: gpui::Hsla) -> String {
+    let h = hsla.h;
+    let s = hsla.s;
+    let l = hsla.l;
+
+    if s == 0.0 {
+        let gray = (l * 255.0) as u8;
+        return format!("#{:02x}{:02x}{:02x}", gray, gray, gray);
+    }
+
+    let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
+    let p = 2.0 * l - q;
+
+    fn hue_to_rgb(p: f32, q: f32, mut t: f32) -> f32 {
+        if t < 0.0 { t += 1.0; }
+        if t > 1.0 { t -= 1.0; }
+        if t < 1.0/6.0 { return p + (q - p) * 6.0 * t; }
+        if t < 1.0/2.0 { return q; }
+        if t < 2.0/3.0 { return p + (q - p) * (2.0/3.0 - t) * 6.0; }
+        p
+    }
+
+    let r = hue_to_rgb(p, q, h + 1.0/3.0);
+    let g = hue_to_rgb(p, q, h);
+    let b = hue_to_rgb(p, q, h - 1.0/3.0);
+
+    let ri = (r * 255.0) as u8;
+    let gi = (g * 255.0) as u8;
+    let bi = (b * 255.0) as u8;
+    format!("#{:02x}{:02x}{:02x}", ri, gi, bi)
+}
+
+fn generate_interactive_html_table(table_name: &str, columns: &[ColumnInfo], data: &[serde_json::Value], colors: &HtmlThemeColors) -> String {
+    let headers: Vec<String> = columns.iter().map(|c| escape_html(&c.name)).collect();
+
+    let header_html = format!("<th>#</th>{}", headers.iter().map(|h| format!("<th>{}</th>", h)).collect::<Vec<_>>().join(""));
+    let header_row = format!("<tr>{}</tr>", header_html);
+
+    let rows_html: Vec<String> = data.iter().enumerate().map(|(idx, row)| {
+        let row_num = idx + 1;
+        let cells: Vec<String> = columns.iter().map(|col| {
+            let value = row.get(&col.name)
+                .map(|v| {
+                    if col.data_type == "bytea" {
+                        "[bytea data]".to_string()
+                    } else {
+                        match v {
+                            serde_json::Value::String(s) => s.clone(),
+                            serde_json::Value::Null => "NULL".to_string(),
+                            other => other.to_string(),
+                        }
+                    }
+                })
+                .unwrap_or_default();
+            format!("<td>{}</td>", escape_html(&value))
+        }).collect();
+        format!(r#"<tr class="data-row" data-row="{}">
+            <td class="row-num">{}</td>
+            {}
+        </tr>
+        <tr class="detail-row" id="detail-{}">
+            <td colspan="{}">
+                <div class="detail-content">
+                    {}
+                </div>
+            </td>
+        </tr>"#,
+            row_num,
+            row_num,
+            cells.join(""),
+            row_num,
+            columns.len() + 1,
+            columns.iter().map(|col| {
+                let value = row.get(&col.name)
+                    .map(|v| {
+                        if col.data_type == "bytea" {
+                            "[bytea data]".to_string()
+                        } else {
+                            match v {
+                                serde_json::Value::String(s) => s.clone(),
+                                serde_json::Value::Null => "NULL".to_string(),
+                                other => other.to_string(),
+                            }
+                        }
+                    })
+                    .unwrap_or_default();
+                format!(r#"<div class="detail-item"><span class="detail-label">{}:</span> <span class="detail-value">{}</span></div>"#,
+                    escape_html(&col.name), escape_html(&value))
+            }).collect::<Vec<_>>().join("")
+        )
+    }).collect();
+    let tbody = rows_html.join("");
+
+    format!(r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{table_name} - SQL Table</title>
+    <style>
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+            font-family: system-ui, sans-serif;
+            background: {background};
+            color: {text};
+            padding: 20px;
+            height: calc(100vh - 40px);
+            display: flex;
+            flex-direction: column;
+        }}
+        h1 {{
+            color: {accent};
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }}
+        .table-container {{
+            flex: 1;
+            overflow: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }}
+        ::-webkit-scrollbar {{
+            width: 10px;
+            height: 10px;
+        }}
+        ::-webkit-scrollbar-track {{
+            background: {border};
+            border-radius: 5px;
+        }}
+        ::-webkit-scrollbar-thumb {{
+            background: {accent};
+            border-radius: 5px;
+        }}
+        ::-webkit-scrollbar-thumb:hover {{
+            background: {text};
+        }}
+        ::-webkit-scrollbar-corner {{
+            background: {border};
+        }}
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            background: {editor_background};
+        }}
+        th, td {{
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid {border};
+        }}
+        th {{
+            background: {editor_background};
+            color: {accent};
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }}
+        th:hover {{
+            background: {border};
+        }}
+        th::after {{
+            content: '';
+            display: inline-block;
+            margin-left: 8px;
+            opacity: 0.5;
+        }}
+        th.asc::after {{
+            content: '▲';
+        }}
+        th.desc::after {{
+            content: '▼';
+        }}
+        tr.data-row:hover {{
+            background: {border};
+            cursor: pointer;
+        }}
+        td {{
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .row-num {{
+            color: {accent};
+            font-weight: 600;
+            width: 50px;
+            text-align: center;
+            cursor: pointer;
+        }}
+        .row-num:hover {{
+            background: rgba(0,0,0,0.1);
+        }}
+        tr.detail-row {{
+            display: none;
+        }}
+        tr.detail-row.open {{
+            display: table-row;
+        }}
+        tr.detail-row td {{
+            padding: 0;
+            background: {background};
+            border-bottom: 2px solid {border};
+        }}
+        .detail-content {{
+            padding: 16px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }}
+        .detail-item {{
+            min-width: 200px;
+            padding: 8px 12px;
+            background: {editor_background};
+            border-radius: 6px;
+            border: 1px solid {border};
+        }}
+        .detail-label {{
+            color: {accent};
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+        }}
+        .detail-value {{
+            word-break: break-all;
+            white-space: pre-wrap;
+        }}
+        .info {{
+            margin-top: 15px;
+            color: {accent};
+            font-size: 0.9rem;
+        }}
+    </style>
+</head>
+<body>
+    <h1>📋 {table_name}</h1>
+    <div class="table-container">
+        <table>
+            <thead>
+                {header_row}
+            </thead>
+            <tbody id="table-body">
+                {tbody}
+            </tbody>
+        </table>
+    </div>
+    <p class="info">💡 Click row number to expand | Click column header to sort</p>
+
+    <script>
+        let sortCol = null;
+        let sortAsc = true;
+
+        document.querySelectorAll('.row-num').forEach(cell => {{
+            cell.addEventListener('click', (e) => {{
+                e.stopPropagation();
+                const row = cell.closest('tr');
+                const rowNum = row.getAttribute('data-row');
+                const detailRow = document.getElementById('detail-' + rowNum);
+                if (detailRow) {{
+                    detailRow.classList.toggle('open');
+                }}
+            }});
+        }});
+
+        document.querySelectorAll('th').forEach((th, i) => {{
+            if (i === 0) return;
+            th.addEventListener('click', () => {{
+                document.querySelectorAll('th').forEach(h => {{ h.classList.remove('asc', 'desc'); }});
+
+                if (sortCol === i) {{
+                    sortAsc = !sortAsc;
+                }} else {{
+                    sortAsc = true;
+                    sortCol = i;
+                }}
+
+                th.classList.add(sortAsc ? 'asc' : 'desc');
+
+                const tbody = document.getElementById('table-body');
+                const pairs = [];
+
+                document.querySelectorAll('.data-row').forEach(dataRow => {{
+                    const rowNum = dataRow.getAttribute('data-row');
+                    const detailRow = document.getElementById('detail-' + rowNum);
+                    pairs.push({{ dataRow, detailRow }});
+                }});
+
+                pairs.sort((a, b) => {{
+                    const aVal = a.dataRow.cells[i].textContent;
+                    const bVal = b.dataRow.cells[i].textContent;
+                    const aNum = parseFloat(aVal);
+                    const bNum = parseFloat(bVal);
+
+                    let result;
+                    if (!isNaN(aNum) && !isNaN(bNum)) {{
+                        result = sortAsc ? aNum - bNum : bNum - aNum;
+                    }} else {{
+                        result = sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+                    }}
+                    return result;
+                }});
+
+                pairs.forEach((pair, newIdx) => {{
+                    const newRowNum = newIdx + 1;
+                    const oldRowNum = pair.dataRow.getAttribute('data-row');
+
+                    if (oldRowNum !== String(newRowNum)) {{
+                        pair.dataRow.setAttribute('data-row', newRowNum);
+                        pair.dataRow.querySelector('.row-num').textContent = newRowNum;
+
+                        pair.detailRow.id = 'detail-' + newRowNum;
+                    }}
+
+                    tbody.appendChild(pair.dataRow);
+                    if (pair.detailRow) {{
+                        tbody.appendChild(pair.detailRow);
+                    }}
+                }});
+            }});
+        }});
+    </script>
+</body>
+</html>"#,
+        table_name = escape_html(table_name),
+        header_row = header_row,
+        tbody = tbody,
+        background = colors.background,
+        editor_background = colors.editor_background,
+        border = colors.border,
+        text = colors.text,
+        accent = colors.accent
+    )
+}
 
 pub struct SqlApiExplorerPanel {
     focus_handle: FocusHandle,
@@ -42,7 +395,9 @@ pub struct SqlApiExplorerPanel {
 
 impl SqlApiExplorerPanel {
     pub fn new(cx: &mut Context<Self>, workspace: Entity<Workspace>) -> Self {
-        let hosts = cx.global::<SqlApiHosts>().hosts.clone();
+        let hosts = SqlApiHosts::load()
+            .map(|h| h.hosts)
+            .unwrap_or_else(|_| cx.global::<SqlApiHosts>().hosts.clone());
 
         let mut this = Self {
             focus_handle: cx.focus_handle(),
@@ -69,16 +424,19 @@ impl SqlApiExplorerPanel {
         };
 
         if this.hosts.is_empty() {
-            this.hosts
-                .push(HostConfig::new("https://example.com".to_string()));
-            this.save_hosts(cx);
+            this.hosts.push(HostConfig::new("https://example.com".to_string()));
         }
+        this.save_hosts(cx);
 
         this
     }
 
     fn save_hosts(&self, cx: &mut Context<Self>) {
         cx.global_mut::<SqlApiHosts>().hosts.clone_from(&self.hosts);
+        let hosts_to_save = SqlApiHosts { hosts: self.hosts.clone() };
+        if let Err(e) = hosts_to_save.save() {
+            eprintln!("Failed to save hosts: {}", e);
+        }
     }
 
     // Создаём/обновляем все нужные InputField при открытии формы
@@ -389,11 +747,10 @@ impl SqlApiExplorerPanel {
             let schema_clone = schema.clone();
             let table_clone = table.clone();
             let host_config_clone = host_config.clone();
-            let workspace_weak = self.workspace.clone();
 
             workspace.update(cx, |workspace, cx| {
                 let item = cx.new(|cx| {
-                    SqlTableDataView::new(host_config_clone, schema_clone, table_clone, workspace_weak.clone(), cx)
+                    SqlTableDataView::new(host_config_clone, schema_clone, table_clone, cx)
                 });
 
                 workspace.add_item_to_active_pane(
@@ -1028,7 +1385,6 @@ struct ColumnInfo {
 }
 
 pub struct SqlTableDataView {
-    workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
     host: HostConfig,
     schema: String,
@@ -1062,7 +1418,6 @@ impl SqlTableDataView {
         host: HostConfig,
         schema: String,
         table: String,
-        workspace: WeakEntity<Workspace>,
         cx: &mut Context<Self>,
     ) -> Self {
         let full_table_name = if schema.is_empty() {
@@ -1083,7 +1438,7 @@ impl SqlTableDataView {
             limit: 100,
             offset: 0,
             where_clause: String::new(),
-order_by: String::new(),
+            order_by: String::new(),
             sort_column: None,
             sort_direction: "ASC".to_string(),
             loading: true,
@@ -1093,7 +1448,6 @@ order_by: String::new(),
             where_input: None,
             order_input: None,
             expanded_rows: HashSet::new(),
-            workspace,
         };
 
         this.load_data(cx);
@@ -1328,52 +1682,55 @@ order_by: String::new(),
         self.load_data(cx);
     }
 
-    fn show_ddl(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let full_name = format!("DDL: {}", self.full_table_name);
-        let loading_text = "⏳ Генерация DDL таблицы...\n\nПожалуйста, подождите секунду...".to_string();
-    
-        // 1. Создаём viewer
-        let ddl_viewer = cx.new(|cx| DdlViewer::new(full_name.clone(), loading_text, cx));
-        let ddl_viewer_weak = ddl_viewer.downgrade();
-    
-        // 2. Открываем вкладку (самая "опасная" часть — делаем синхронно)
-        if let Some(workspace) = self.workspace.upgrade() {
-            workspace.update(cx, |workspace, cx| {
-                workspace.add_item_to_active_pane(
-                    Box::new(ddl_viewer) as Box<dyn workspace::ItemHandle>,
-                    None,
-                    true,
-                    window,
-                    cx,
-                );
-            });
+    fn show_in_browser(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.data.is_empty() {
+            self.status = "⚠️ Нет данных для экспорта".to_string();
+            cx.notify();
+            return;
         }
-    
-        // 3. Обновляем статус исходной вкладки (синхронно — безопасно)
-        self.status = "✅ Вкладка DDL открыта (генерация в фоне...)".to_string();
+
+        let columns = self.columns.clone();
+        let data = self.data.clone();
+        let table_name = self.full_table_name.clone();
+
+        let colors = cx.theme().colors();
+        let html_colors = HtmlThemeColors {
+            background: hsla_to_hex(colors.background),
+            editor_background: hsla_to_hex(colors.surface_background),
+            border: hsla_to_hex(colors.border),
+            text: hsla_to_hex(colors.text),
+            accent: hsla_to_hex(colors.text_accent),
+        };
+
+        std::thread::spawn(move || {
+            let html = generate_interactive_html_table(&table_name, &columns, &data, &html_colors);
+            let temp_dir = std::env::temp_dir();
+            let file_name = format!("sql_table_{}.html", Uuid::new_v4());
+            let file_path = temp_dir.join(&file_name);
+
+            if let Err(e) = std::fs::write(&file_path, &html) {
+                eprintln!("Failed to write HTML file: {}", e);
+                return;
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                std::process::Command::new("cmd")
+                    .args(["/C", "start", "", &file_path.to_string_lossy()])
+                    .spawn()
+                    .ok();
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                std::process::Command::new("xdg-open")
+                    .arg(&file_path)
+                    .spawn()
+                    .ok();
+            }
+        });
+
+        self.status = "🌐 Открываю в браузере...".to_string();
         cx.notify();
-    
-        // 4. Асинхронная генерация DDL
-        let host = self.host.clone();
-        let schema = self.schema.clone();
-        let table = self.table.clone();
-        let client: Arc<dyn HttpClient> = cx.http_client();
-    
-        // Самое важное: НЕ используем `this.update` для SqlTableDataView в background-задаче
-        cx.spawn(async move |_, cx| {
-            let result = Self::fetch_ddl_real(&host, &schema, &table, client).await;
-    
-            let ddl_text = match result {
-                Ok(ddl) => ddl,
-                Err(err) => format!("❌ Ошибка генерации DDL:\n\n{}", err),
-            };
-    
-            // Обновляем только DDL-вкладку
-            let _ = ddl_viewer_weak.update(cx, |viewer, cx| {
-                viewer.update_ddl(ddl_text, cx);
-            });
-        })
-        .detach();
     }
 
     async fn fetch_ddl_real(
@@ -1571,9 +1928,7 @@ GROUP BY pk_columns, index_statements;
                                 .pl_8()
                                 .pr_3()
                                 .py_2()
-                                .max_h(px(400.))
-                                .overflow_y_scroll()
-                                .overflow_x_scroll()
+                                .w_full()
                                 .bg(cx.theme().colors().element_background)
                                 .rounded_md()
                                 .border_1()
@@ -1592,7 +1947,6 @@ GROUP BY pk_columns, index_statements;
                                                 .gap_3()
                                                 .items_start()
                                                 .child(
-                                                    // Фиксированная ширина для имени колонки
                                                     div()
                                                         .w(px(180.))
                                                         .flex_shrink_0()
@@ -1608,12 +1962,18 @@ GROUP BY pk_columns, index_statements;
                                                         .id(format!("value-{}-{}", i, col.name))
                                                         .flex_1()
                                                         .min_w_0()
-                                                        .overflow_x_scroll()
+                                                        .overflow_x_hidden()
                                                         .child(
-                                                            Label::new(display)
+                                                            Label::new(display.clone())
                                                                 .size(LabelSize::Small)
-                                                            // .selectable(true) — убрали, в этой версии нет такого метода
                                                         )
+                                                )
+                                                .child(
+                                                    Button::new(format!("copy-field-{}-{}", i, col.name), "📋")
+                                                        .style(ButtonStyle::Subtle)
+                                                        .on_click(move |_, _window, cx| {
+                                                            cx.write_to_clipboard(gpui::ClipboardItem::new_string(display.clone()));
+                                                        })
                                                 )
                                         }))
                                 )
@@ -1647,16 +2007,16 @@ impl Render for SqlTableDataView {
                                 h_flex()
                                     .gap_2()
                                     .child(
+                                        Button::new("show_in_browser", "Show in browser")
+                                            .style(ButtonStyle::Filled)
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.show_in_browser(window, cx);
+                                            })),
+                                    )
+                                    .child(
                                         Button::new("refresh", "Refresh")
                                             .style(ButtonStyle::Filled)
                                             .on_click(cx.listener(|this, _, _window, cx| this.refresh(cx))),
-                                    )
-                                    .child(
-                                        Button::new("ddl", "DDL")
-                                            .style(ButtonStyle::Filled)
-                                            .on_click(cx.listener(|this, _, window, cx| {
-                                                this.show_ddl(window, cx);
-                                            })),
                                     ),
                             ),
             )
@@ -1668,22 +2028,22 @@ impl Render for SqlTableDataView {
                     .items_end()
                     .child(
                         v_flex()
-                            .w(px(120.))
+                            .flex_1()
                             .child(Label::new("Limit").size(LabelSize::Small))
                             .child(limit_input.clone()),
                     )
                     .child(
                         v_flex()
                             .flex_1()
-                            .child(Label::new("WHERE").size(LabelSize::Small))
+                            .child(Label::new("Where").size(LabelSize::Small))
                             .child(where_input.clone()),
                     )
                     .child(
-                                v_flex()
-                                    .flex_1()
-                                    .child(Label::new("ORDER BY").size(LabelSize::Small))
-                                    .child(order_input.clone()),           // ← НОВОЕ поле
-                            )
+                        v_flex()
+                            .flex_1()
+                            .child(Label::new("Order by").size(LabelSize::Small))
+                            .child(order_input.clone()),
+                    )
                     .child(
                         Button::new("apply", "Применить")
                             .style(ButtonStyle::Filled)
