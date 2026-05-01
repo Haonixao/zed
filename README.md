@@ -1,6 +1,7 @@
 ### **Current diffs**:
 
 * New crate: Docker panel
+* New crate: SQL API crate (db explorer. uses api to connect)
 
 ---
 
