@@ -25,6 +25,8 @@ struct Container {
     image: String,
     #[serde(rename = "State")]
     state: String,
+    #[serde(default)]
+    ports: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -57,6 +59,7 @@ pub struct DockerPanel {
     containers_expanded: bool,
     images_expanded: bool,
     volumes_expanded: bool,
+    container_info_expanded: std::collections::HashMap<String, bool>,
 }
 
 impl DockerPanel {
@@ -71,6 +74,7 @@ impl DockerPanel {
             containers_expanded: true,
             images_expanded: false,
             volumes_expanded: false,
+            container_info_expanded: std::collections::HashMap::new(),
         };
         this.refresh(cx);
         this
@@ -121,6 +125,17 @@ impl DockerPanel {
         cx.notify();
     }
 
+    fn toggle_container_info(&mut self, container_id: &str, cx: &mut Context<Self>) {
+        let current = self
+            .container_info_expanded
+            .get(container_id)
+            .copied()
+            .unwrap_or(false);
+        self.container_info_expanded
+            .insert(container_id.to_string(), !current);
+        cx.notify();
+    }
+
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         self.status = format!("Обновление... {}", Local::now().format("%H:%M:%S"));
 
@@ -135,11 +150,37 @@ impl DockerPanel {
         match output {
             Ok(out) if out.status.success() => {
                 let text = String::from_utf8_lossy(&out.stdout);
-                self.containers = text
+                let mut containers: Vec<Container> = text
                     .lines()
                     .filter(|l| !l.trim().is_empty())
                     .filter_map(|line| serde_json::from_str::<Container>(line).ok())
                     .collect();
+
+                // Получаем информацию о портах для каждого контейнера
+                for container in &mut containers {
+                    let ports_output = DockerPanel::docker_cmd()
+                        .arg("inspect")
+                        .arg(&container.id)
+                        .arg("--format")
+                        .arg("{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{range $i, $binding := $conf}}{{if $i}}, {{end}}{{$p}} -> {{$binding.HostPort}}{{end}}{{else}}{{$p}}{{end}}{{end}}")
+                        .output();
+
+                    if let Ok(out) = ports_output {
+                        if out.status.success() {
+                            let ports_text =
+                                String::from_utf8_lossy(&out.stdout).trim().to_string();
+                            if !ports_text.is_empty() {
+                                container.ports = ports_text;
+                            }
+                        }
+                    }
+                }
+
+                self.containers = containers;
+
+                // Очищаем состояния раскрытия для несуществующих контейнеров
+                self.container_info_expanded
+                    .retain(|id, _| self.containers.iter().any(|c| &c.id == id));
             }
             Ok(_) => self.status = "docker ps вернул ошибку".to_string(),
             Err(e) => self.status = format!("docker не найден: {}", e),
@@ -376,9 +417,83 @@ impl Render for DockerPanel {
                                                 ),
                                             )
                                             .child(
-                                                Label::new(&c.image)
-                                                    .size(LabelSize::Small)
-                                                    .color(Color::Muted),
+                                                h_flex()
+                                                    .id(format!("info-header-{}", short_id))
+                                                    .justify_between()
+                                                    .items_center()
+                                                    .px_2()
+                                                    .py_1()
+                                                    .rounded_md()
+                                                    .hover(|style| {
+                                                        style.bg(cx
+                                                            .theme()
+                                                            .colors()
+                                                            .ghost_element_hover)
+                                                    })
+                                                    .on_click(cx.listener({
+                                                        let id = c.id.clone();
+                                                        move |this, _, _, cx| {
+                                                            this.toggle_container_info(&id, cx);
+                                                        }
+                                                    }))
+                                                    .child(
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .items_center()
+                                                            .child(
+                                                                Icon::new(
+                                                                    if self
+                                                                        .container_info_expanded
+                                                                        .get(&c.id)
+                                                                        .copied()
+                                                                        .unwrap_or(false)
+                                                                    {
+                                                                        IconName::ChevronDown
+                                                                    } else {
+                                                                        IconName::ChevronRight
+                                                                    },
+                                                                )
+                                                                .size(IconSize::Small),
+                                                            )
+                                                            .child(
+                                                                Label::new("Info")
+                                                                    .size(LabelSize::Small)
+                                                                    .weight(FontWeight::MEDIUM),
+                                                            ),
+                                                    ),
+                                            )
+                                            .when(
+                                                self.container_info_expanded
+                                                    .get(&c.id)
+                                                    .copied()
+                                                    .unwrap_or(false),
+                                                |this| {
+                                                    this.child(
+                                                        v_flex()
+                                                            .gap_1()
+                                                            .pl_6()
+                                                            .child(
+                                                                Label::new(format!(
+                                                                    "Image: {}",
+                                                                    &c.image
+                                                                ))
+                                                                .size(LabelSize::Small)
+                                                                .color(Color::Muted),
+                                                            )
+                                                            .child(
+                                                                Label::new(format!(
+                                                                    "Ports: {}",
+                                                                    if c.ports.is_empty() {
+                                                                        "no"
+                                                                    } else {
+                                                                        &c.ports
+                                                                    }
+                                                                )
+                                                                .size(LabelSize::Small)
+                                                                .color(Color::Muted),
+                                                            ),
+                                                    )
+                                                },
                                             )
                                             .child(
                                                 h_flex()
@@ -603,7 +718,6 @@ impl Render for DockerPanel {
                             .when(self.volumes_expanded, |this| {
                                 this.child(v_flex().gap_2().children(self.volumes.iter().map(
                                     |vol| {
-
                                         v_flex()
                                             .id(format!("volume-{}", vol.name))
                                             .p_2()
