@@ -488,7 +488,7 @@ impl Render for DockerPanel {
                                                                     } else {
                                                                         &c.ports
                                                                     }
-                                                                )
+                                                                ))
                                                                 .size(LabelSize::Small)
                                                                 .color(Color::Muted),
                                                             ),
@@ -787,7 +787,7 @@ impl Panel for DockerPanel {
         Some("Docker Containers")
     }
     fn toggle_action(&self) -> Box<dyn Action> {
-        Box::new(ToggleDockerPanel)
+        Box::new(ToggleDockerPanel) as Box<dyn Action>
     }
     fn activation_priority(&self) -> u32 {
         800
