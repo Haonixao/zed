@@ -162,7 +162,7 @@ impl DockerPanel {
                         .arg("inspect")
                         .arg(&container.id)
                         .arg("--format")
-                        .arg("{{range $p, $conf := .NetworkSettings.Ports}}{{if $conf}}{{range $i, $binding := $conf}}{{if $i}}, {{end}}{{$p}} -> {{$binding.HostPort}}{{end}}{{else}}{{$p}}{{end}}{{end}}")
+                        .arg("{{range $p, $conf := .HostConfig.PortBindings}}{{if $conf}}{{range $i, $binding := $conf}}{{if $i}}, {{end}}{{$p}} -> {{$binding.HostPort}}{{end}}{{else}}{{$p}}{{end}}{{end}}")
                         .output();
 
                     if let Ok(out) = ports_output {
