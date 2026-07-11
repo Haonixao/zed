@@ -5997,6 +5997,7 @@ impl GitPanel {
             .pl_3()
             .pr_1()
             .gap_1p5()
+            .rounded_md()
             .border_1()
             .border_r_2()
             .when(selected && self.focus_handle.is_focused(window), |el| {
@@ -6198,6 +6199,7 @@ impl GitPanel {
             .pr_1()
             .gap_1p5()
             .justify_between()
+            .rounded_md()
             .border_1()
             .border_r_2()
             .when(selected && self.focus_handle.is_focused(window), |el| {

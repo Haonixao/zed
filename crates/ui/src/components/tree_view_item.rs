@@ -164,7 +164,7 @@ impl RenderOnce for TreeViewItem {
                     .pl_0p5()
                     .pr_1()
                     .gap_2()
-                    .rounded_sm()
+                    .rounded_md()
                     .border_1()
                     .border_color(transparent_border)
                     .focus_visible(|s| s.border_color(focused_border))

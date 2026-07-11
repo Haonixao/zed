@@ -3385,6 +3385,7 @@ impl Render for GitGraph {
                                     };
 
                                     row.h(row_height)
+                                        .rounded_md()
                                         .cursor_pointer()
                                         .when(is_selected || is_context_menu_target, |row| {
                                             row.bg(selected_bg)

@@ -129,6 +129,7 @@ impl RenderOnce for WindowsCaptionButton {
             .w(px(36.))
             .h_full()
             .text_size(px(10.0))
+            .rounded_sm()
             .hover(|style| style.bg(hover_bg).text_color(hover_fg))
             .active(|style| style.bg(active_bg).text_color(active_fg))
             .window_control_area(self.control_area())
