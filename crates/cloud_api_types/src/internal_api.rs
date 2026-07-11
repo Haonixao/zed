@@ -4,8 +4,9 @@ use serde::{Deserialize, Serialize};
 pub struct User {
     pub id: String,
     pub legacy_user_id: i32,
+    pub username: String,
     pub github_login: String,
-    pub github_user_id: i32,
+    pub avatar_url: String,
     pub name: Option<String>,
     pub admin: bool,
     pub connected_once: bool,
