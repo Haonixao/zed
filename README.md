@@ -1,7 +1,49 @@
-### **Current diffs**:
+### **Custom crates**:
 
-* New crate: Docker panel
-* New crate: SQL API crate (db explorer. uses api to connect)
+#### Docker Panel (`crates/docker_panel`)
+A dock panel for managing Docker containers, images, and volumes directly within Zed.
+
+**Features:**
+- View all containers (running and stopped)
+- Container actions: start, stop, restart, remove
+- View container logs in Zed terminal (`docker logs -f`)
+- Open interactive shell inside container (`docker exec -it /bin/bash`)
+- View images with size information
+- Remove images
+- View volumes with driver information
+- Remove volumes
+- Automatic refresh on panel open
+- Bash detection (uses `/bin/bash` if available, falls back to `/bin/sh`)
+
+**UI Elements:**
+- Collapsible sections for Containers, Images, Volumes
+- Status indicators (R = Running, S = Stopped)
+- Port bindings display
+- Chevron expand/collapse for container details
+
+**Dependencies:** gpui, workspace, ui, terminal, terminal_view, task, collections, chrono, serde, anyhow
+
+#### SQL API Explorer (`crates/sql_api_explorer`)
+A dock panel for exploring PostgreSQL databases via REST API directly within Zed.
+
+**Features:**
+- Connect to multiple database hosts via REST API
+- Authentication support: None, Bearer Token, Basic Auth, Custom Header
+- Browse Schemas and Tables
+- View table data in interactive HTML table
+- Row expansion for detailed column view
+- Sortable columns (click header to sort)
+- Persistent host configuration (saved to `sql_api_explorer_hosts.json`)
+- Add/remove hosts via UI form
+
+**UI Elements:**
+- Collapsible host list with auth type indicators
+- Schema tree with expand/collapse
+- Interactive data table with alternating row colors
+- Row click to expand details
+- Connection status display
+
+**Dependencies:** gpui, workspace, ui, anyhow, base64, http_client, serde, serde_json, ui_input, futures-lite, uuid, fs
 
 ---
 
