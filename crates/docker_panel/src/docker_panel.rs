@@ -1,7 +1,7 @@
 use chrono::Local;
 use collections::HashMap;
 use gpui::AppContext;
-use gpui::WeakEntity; // уже должен быть, но на всякий
+use gpui::WeakEntity;
 use gpui::*;
 use gpui::{App, AsyncApp, Context};
 use serde::Deserialize;
@@ -27,6 +27,8 @@ struct Container {
     state: String,
     #[serde(default)]
     ports: String,
+    #[serde(default)]
+    has_bash: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -174,6 +176,18 @@ impl DockerPanel {
                             }
                         }
                     }
+
+                    // Проверяем наличие bash в контейнере
+                    let bash_check = DockerPanel::docker_cmd()
+                        .arg("exec")
+                        .arg(&container.id)
+                        .arg("which")
+                        .arg("bash")
+                        .output();
+
+                    container.has_bash = bash_check
+                        .map(|out| out.status.success())
+                        .unwrap_or(false);
                 }
 
                 self.containers = containers;
@@ -303,6 +317,80 @@ impl DockerPanel {
         .detach();
 
         eprintln!("🏁 [Docker Logs] show_logs завершён");
+    }
+
+    fn exec_container(&self, window: &mut Window, cx: &mut Context<Self>, container_id: &str, has_bash: bool) {
+        let short_id = container_id.chars().take(12).collect::<String>();
+        let shell = if has_bash { "/bin/bash" } else { "/bin/sh" };
+        eprintln!(
+            "🐳 [Docker Exec] exec_container вызван для контейнера: {} (bash: {})",
+            short_id, has_bash
+        );
+
+        let Some(workspace) = self.workspace.upgrade() else {
+            eprintln!("❌ [Docker Exec] Не удалось upgrade workspace");
+            return;
+        };
+
+        let spawn_task = SpawnInTerminal {
+            id: TaskId(format!("docker-exec-{}", short_id)),
+            full_label: format!("🐳 Exec — {}", short_id),
+            label: format!("🐳 Exec — {}", short_id),
+            command_label: format!("docker exec -it {} {}", short_id, shell),
+            command: Some("docker".into()),
+            args: vec![
+                "exec".into(),
+                "-it".into(),
+                container_id.into(),
+                shell.into(),
+            ],
+            cwd: None,
+            env: HashMap::default(),
+            use_new_terminal: true,
+            allow_concurrent_runs: true,
+            reveal: RevealStrategy::Always,
+            reveal_target: RevealTarget::Dock,
+            hide: HideStrategy::Never,
+            shell: Shell::System,
+            show_summary: true,
+            show_command: true,
+            show_rerun: true,
+            save: SaveStrategy::None,
+        };
+
+        eprintln!("✅ [Docker Exec] SpawnInTerminal создан");
+
+        let task_handle = workspace.update(cx, |workspace, cx| {
+            let _ = workspace.toggle_panel_focus::<TerminalPanel>(window, cx);
+
+            if let Some(terminal_panel) = workspace.panel::<TerminalPanel>(cx) {
+                terminal_panel.update(cx, |terminal_panel, cx| {
+                    terminal_panel.add_terminal_task(spawn_task, RevealStrategy::Always, window, cx)
+                })
+            } else {
+                Task::ready(Err(anyhow::anyhow!("TerminalPanel not found")))
+            }
+        });
+
+        cx.spawn({
+            let task_handle = task_handle;
+            move |_this: WeakEntity<Self>, _cx: &mut AsyncApp| async move {
+                match task_handle.await {
+                    Ok(weak_terminal) => {
+                        eprintln!(
+                            "✅ [Docker Exec] Терминал успешно создан: {:?}",
+                            weak_terminal
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("❌ [Docker Exec] Ошибка при создании терминала: {:?}", e);
+                    }
+                }
+            }
+        })
+        .detach();
+
+        eprintln!("🏁 [Docker Exec] exec_container завершён");
     }
 }
 
@@ -561,6 +649,23 @@ impl Render for DockerPanel {
                                                             let id = c.id.clone();
                                                             move |this, _, window, cx| {
                                                                 this.show_logs(window, cx, &id);
+                                                            }
+                                                        })),
+                                                    )
+                                                    .child(
+                                                        IconButton::new(
+                                                            format!("exec-{}", short_id),
+                                                            IconName::Terminal,
+                                                        )
+                                                        .icon_size(IconSize::Small)
+                                                        .disabled(!is_running)
+                                                        .on_click(cx.listener({
+                                                            let id = c.id.clone();
+                                                            let has_bash = c.has_bash;
+                                                            move |this, _, window, cx| {
+                                                                this.exec_container(
+                                                                    window, cx, &id, has_bash,
+                                                                );
                                                             }
                                                         })),
                                                     )
