@@ -403,7 +403,7 @@ impl SqlApiExplorerPanel {
             focus_handle: cx.focus_handle(),
             workspace: workspace.downgrade(),
             hosts,
-            status: "Готов к работе".to_string(),
+            status: "Ready to work".to_string(),
 
             show_add_form: false,
             new_host_input: None,
@@ -496,7 +496,7 @@ impl SqlApiExplorerPanel {
             .unwrap_or_default();
 
         if host_url.is_empty() {
-            self.status = "❌ Введите URL хоста".to_string();
+            self.status = "❌ Enter host URL".to_string();
             cx.notify();
             return;
         }
@@ -566,7 +566,7 @@ impl SqlApiExplorerPanel {
 
         self.hosts.push(new_host);
         self.save_hosts(cx);
-        self.status = format!("✅ Хост добавлен ({} всего)", self.hosts.len());
+        self.status = format!("✅ Host added ({} all)", self.hosts.len());
         self.close_add_form(window, cx);
         cx.notify();
     }
@@ -738,7 +738,7 @@ impl SqlApiExplorerPanel {
         cx: &mut Context<Self>,
     ) {
         let Some(workspace) = self.workspace.upgrade() else {
-            self.status = "❌ Workspace недоступен".to_string();
+            self.status = "❌ Workspace unavailable".to_string();
             cx.notify();
             return;
         };
@@ -762,9 +762,9 @@ impl SqlApiExplorerPanel {
                 );
             });
 
-            self.status = format!("📋 Открыта таблица: {}.{}", schema, table);
+            self.status = format!("📋 Table is opened: {}.{}", schema, table);
         } else {
-            self.status = format!("❌ Хост {} не найден", host_name);
+            self.status = format!("❌ Host {} not found", host_name);
         }
 
         cx.notify();
@@ -779,13 +779,13 @@ impl SqlApiExplorerPanel {
         cx: &mut Context<Self>,
     ) {
         let Some(host_config) = self.hosts.iter().find(|h| h.name == host_name).cloned() else {
-            self.status = format!("❌ Хост {} не найден", host_name);
+            self.status = format!("❌ Host {} not found", host_name);
             cx.notify();
             return;
         };
 
         let full_name = format!("DDL: {}.{}", schema, table);
-        let loading_text = "⏳ Генерация DDL таблицы...\n\nПожалуйста, подождите секунду...".to_string();
+        let loading_text = "⏳ DDL generation for table...\n\nWait...".to_string();
 
         let ddl_viewer = cx.new(|cx| DdlViewer::new(full_name.clone(), loading_text, cx));
         let ddl_viewer_weak = ddl_viewer.downgrade();
@@ -803,7 +803,7 @@ impl SqlApiExplorerPanel {
             });
         }
 
-        self.status = format!("✅ Генерация DDL для {}.{} запущена", schema, table);
+        self.status = format!("✅ DDL generation for {}.{} started", schema, table);
         cx.notify();
 
         // Асинхронная генерация (без this.update — безопасно!)
@@ -814,7 +814,7 @@ impl SqlApiExplorerPanel {
 
             let ddl_text = match result {
                 Ok(ddl) => ddl,
-                Err(err) => format!("❌ Ошибка генерации DDL:\n\n{}", err),
+                Err(err) => format!("❌ DDL generation ERROR:\n\n{}", err),
             };
 
             let _ = ddl_viewer_weak.update(cx, |viewer, cx| {
@@ -958,13 +958,13 @@ impl SqlApiExplorerPanel {
             self.loading_hosts.remove(&name);
             self.loading_tables.retain(|k| !k.starts_with(&format!("{}|", name)));
             self.save_hosts(cx);
-            self.status = "🗑️ Хост удалён".to_string();
+            self.status = "🗑️ Host deleted".to_string();
             cx.notify();
         }
     }
 
     fn refresh(&mut self, cx: &mut Context<Self>) {
-        self.status = "🔄 Обновлено".to_string();
+        self.status = "🔄 Updated".to_string();
         cx.notify();
     }
 }
@@ -1129,7 +1129,7 @@ impl Render for SqlApiExplorerPanel {
                                                                     .color(Color::Muted)
                                                                     .into_any_element()
                                                             } else if tables_for_schema.is_empty() {
-                                                                Label::new("Нет таблиц")
+                                                                Label::new("No tables")
                                                                     .color(Color::Muted)
                                                                     .italic()
                                                                     .into_any_element()
@@ -1211,7 +1211,7 @@ impl Render for SqlApiExplorerPanel {
                         .border_1()
                         .border_color(cx.theme().colors().border)
                         .gap_4()
-                        .child(Label::new("Добавить новый хост").weight(FontWeight::MEDIUM))
+                        .child(Label::new("Add new host").weight(FontWeight::MEDIUM))
                         // Host URL
                         .child(self.new_host_input.as_ref().unwrap().clone())
                         // Выбор типа авторизации
@@ -1301,11 +1301,11 @@ impl Render for SqlApiExplorerPanel {
                             h_flex()
                                 .gap_2()
                                 .justify_end()
-                                .child(Button::new("cancel", "Отмена").on_click(cx.listener(
+                                .child(Button::new("cancel", "Cancel").on_click(cx.listener(
                                     |this, _, window, cx| this.close_add_form(window, cx),
                                 )))
                                 .child(
-                                    Button::new("save", "Сохранить")
+                                    Button::new("save", "Save")
                                         .style(ButtonStyle::Filled)
                                         .on_click(cx.listener(|this, _, window, cx| {
                                             this.add_host(window, cx)
@@ -1318,7 +1318,7 @@ impl Render for SqlApiExplorerPanel {
                 Button::new(
                     "add-host",
                     if self.show_add_form {
-                        "✕ Закрыть форму"
+                        "✕ Close"
                     } else {
                         "＋ Add Host"
                     },
@@ -1442,7 +1442,7 @@ impl SqlTableDataView {
             sort_column: None,
             sort_direction: "ASC".to_string(),
             loading: true,
-            status: "Загрузка...".to_string(),
+            status: "Loading...".to_string(),
 
             limit_input: None,
             where_input: None,
@@ -1477,7 +1477,7 @@ impl SqlTableDataView {
 
     fn load_data(&mut self, cx: &mut Context<Self>) {
         self.loading = true;
-        self.status = "⏳ Загрузка данных...".to_string();
+        self.status = "⏳ Loading data...".to_string();
         cx.notify();
 
         let host = self.host.clone();
@@ -1513,7 +1513,7 @@ impl SqlTableDataView {
                         view.columns = cols;
                         view.data = data;
                         view.total_rows = total;
-                        view.status = format!("✅ Загружено {} строк из {}", view.data.len(), view.total_rows);
+                        view.status = format!("✅ Loaded {} rows out of {}", view.data.len(), view.total_rows);
                     }
                     Err(err) => {
                         view.status = format!("❌ {}", err);
@@ -1684,7 +1684,7 @@ impl SqlTableDataView {
 
     fn show_in_browser(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.data.is_empty() {
-            self.status = "⚠️ Нет данных для экспорта".to_string();
+            self.status = "⚠️ No data available for export".to_string();
             cx.notify();
             return;
         }
@@ -1729,7 +1729,7 @@ impl SqlTableDataView {
             }
         });
 
-        self.status = "🌐 Открываю в браузере...".to_string();
+        self.status = "🌐 Opening in the browser...".to_string();
         cx.notify();
     }
 
@@ -1756,14 +1756,14 @@ WITH cols AS (
 pk AS (
     SELECT string_agg(quote_ident(column_name), ', ') as pk_columns
     FROM information_schema.key_column_usage kcu
-    JOIN information_schema.table_constraints tc 
+    JOIN information_schema.table_constraints tc
         ON kcu.constraint_name = tc.constraint_name
-    WHERE tc.table_schema = '{}' 
+    WHERE tc.table_schema = '{}'
       AND tc.table_name = '{}'
       AND tc.constraint_type = 'PRIMARY KEY'
 ),
 fk AS (
-    SELECT 
+    SELECT
         tc.constraint_name,
         string_agg(DISTINCT quote_ident(kcu.column_name), ', ') as fk_columns,
         ccu.table_schema as ref_schema,
@@ -1772,13 +1772,13 @@ fk AS (
         rc.update_rule,
         rc.delete_rule
     FROM information_schema.table_constraints tc
-    JOIN information_schema.key_column_usage kcu 
+    JOIN information_schema.key_column_usage kcu
         ON tc.constraint_name = kcu.constraint_name
-    JOIN information_schema.constraint_column_usage ccu 
+    JOIN information_schema.constraint_column_usage ccu
         ON tc.constraint_name = ccu.constraint_name
     JOIN information_schema.referential_constraints rc
         ON tc.constraint_name = rc.constraint_name
-    WHERE tc.table_schema = '{}' 
+    WHERE tc.table_schema = '{}'
       AND tc.table_name = '{}'
       AND tc.constraint_type = 'FOREIGN KEY'
     GROUP BY tc.constraint_name, ccu.table_schema, ccu.table_name, rc.update_rule, rc.delete_rule
@@ -1788,7 +1788,7 @@ indexes AS (
     FROM pg_indexes
     WHERE schemaname = '{}' AND tablename = '{}'
 )
-SELECT 
+SELECT
     'CREATE TABLE ' || quote_ident('{}') || '.' || quote_ident('{}') || E'\n(\n' ||
     string_agg(
         '    ' || quote_ident(column_name) || ' ' ||
@@ -1802,7 +1802,7 @@ SELECT
         E',\n'
         ORDER BY ordinal_position
     ) || E'\n);' ||
-    COALESCE(E'\n\n-- Primary Key:\nALTER TABLE ' || quote_ident('{}') || '.' || quote_ident('{}') || 
+    COALESCE(E'\n\n-- Primary Key:\nALTER TABLE ' || quote_ident('{}') || '.' || quote_ident('{}') ||
              ' ADD PRIMARY KEY (' || pk_columns || ');', '') ||
     COALESCE(
         (SELECT string_agg(
@@ -1840,7 +1840,7 @@ GROUP BY pk_columns, index_statements;
             .and_then(|arr| arr.first())
             .and_then(|row| row.get("full_ddl"))
             .and_then(|v| v.as_str())
-            .unwrap_or("Не удалось сгенерировать DDL")
+            .unwrap_or("Failed to generate DDL")
             .to_string();
 
         Ok(ddl)
@@ -2045,7 +2045,7 @@ impl Render for SqlTableDataView {
                             .child(order_input.clone()),
                     )
                     .child(
-                        Button::new("apply", "Применить")
+                        Button::new("apply", "Apply")
                             .style(ButtonStyle::Filled)
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.apply_filters(window, cx);
@@ -2064,9 +2064,9 @@ impl Render for SqlTableDataView {
                     .rounded_md()
                     .child(
                         if self.loading {
-                            Label::new("⏳ Загрузка...").into_any_element()
+                            Label::new("⏳ Loading...").into_any_element()
                         } else if self.data.is_empty() {
-                            Label::new("Нет данных").italic().into_any_element()
+                            Label::new("No data").italic().into_any_element()
                         } else {
                             self.render_rows_view(window, cx).into_any_element()
                         },
@@ -2089,7 +2089,7 @@ impl Render for SqlTableDataView {
                     )
                     .child(
                         Label::new(format!(
-                            "Строки {}-{} из {}",
+                            "Rows {}-{} out of {}",
                             self.offset + 1,
                             (self.offset + self.limit).min(self.total_rows),
                             self.total_rows
@@ -2175,7 +2175,7 @@ impl Render for DdlViewer {
                             .weight(FontWeight::MEDIUM),
                     )
                     .child(
-                        Button::new("copy-ddl", "📋 Копировать")
+                        Button::new("copy-ddl", "📋 Copy")
                             .style(ButtonStyle::Filled)
                             .on_click(cx.listener(|this, _, _window, cx| {
                                 // Копируем текст в буфер обмена
@@ -2225,7 +2225,7 @@ impl workspace::Item for DdlViewer {
 }
 
 pub fn init(cx: &mut App) {
-    println!("🚀 SqlApiExplorerPanel — полная форма авторизации готова!");
+    println!("🚀 SqlApiExplorerPanel — full authorization form is ready!");
 
     if !cx.has_global::<SqlApiHosts>() {
         cx.set_global(SqlApiHosts { hosts: vec![] });
