@@ -24,7 +24,7 @@ A dock panel for managing Docker containers, images, and volumes directly within
 **Dependencies:** gpui, workspace, ui, terminal, terminal_view, task, collections, chrono, serde, anyhow
 
 #### SQL API Explorer (`crates/sql_api_explorer`)
-A dock panel for exploring PostgreSQL databases via REST API directly within Zed.
+My small dock panel for exploring PostgreSQL databases via REST API directly within Zed.
 
 **Features:**
 - Connect to multiple database hosts via REST API

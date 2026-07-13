@@ -967,6 +967,123 @@ impl SqlApiExplorerPanel {
         self.status = "🔄 Updated".to_string();
         cx.notify();
     }
+
+    fn open_about(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(workspace) = self.workspace.upgrade() else {
+            return;
+        };
+
+        let about_text = r#"SQL API Explorer
+
+My small crate providing a GUI for exploring SQL databases via REST API.
+
+PURPOSE
+
+Allows connecting to SQL API endpoints and visually exploring database structure and data (PostgreSQL) directly from the editor.
+
+REASON
+
+I find it useful to be able to browse a database located on remote servers that is inaccessible via direct connection. So, I wrote a small crate that allows browsing the database via an API (with authentication, of course).
+
+FEATURES
+
+Hosts and Authentication
+* Manage list of API hosts
+* Multiple authentication types supported:
+  - None (no auth)
+  - Bearer Token
+  - Custom Header
+  - Basic Auth
+
+Database Structure Exploration
+* Tree navigation: hosts -> schemas -> tables
+* Fetch schemas via query to pg_catalog.pg_namespace
+* Fetch tables via information_schema.tables
+
+Table Data Viewing
+* Pagination (LIMIT/OFFSET)
+* WHERE clause filtering
+* ORDER BY sorting
+* Row expansion to view all fields
+* Copy field values to clipboard
+
+DDL Viewing
+* Generate CREATE TABLE from information_schema.columns
+* Primary key (PK) display
+* Foreign key (FK) display with ON DELETE/UPDATE rules
+* Index listing
+
+Export
+* Export table to interactive HTML with client-side sorting
+
+REQUIRED API ENDPOINTS
+
+The extension expects the target server to implement the following endpoints:
+
+POST /api/v1/dev/query-sql
+
+Executes arbitrary SQL queries.
+
+Request body:
+{ "sql": "SELECT ..." }
+
+Response:
+{
+  "data": [
+    { "column_name": "value", ... },
+    ...
+  ]
+}
+
+The endpoint must:
+- Accept JSON body with 'sql' field
+- Return JSON with 'data' array containing row objects
+- Execute any SQL query passed via 'sql' field and return results
+
+ARCHITECTURE
+
+src/
+  lib.rs                     - Public API, re-exports
+  models.rs                  - Data models (HostConfig, AuthConfig, SqlApiHosts)
+  sql_api_explorer_panel.rs  - UI components
+
+Main Components
+
+* SqlApiExplorerPanel - left dock panel with hosts/schemas/tables tree
+* SqlTableDataView - tab with table data
+* DdlViewer - tab with table DDL script
+
+CONFIGURATION
+
+Host list is stored in sql_api_explorer_hosts.json:
+- Windows: %APPDATA%\Zed\
+- macOS: ~/Library/Application Support/Zed/
+- Linux: ~/.local/share/zed/ or $XDG_DATA_HOME/zed/
+
+DEPENDENCIES
+
+- gpui - Zed UI framework
+- http_client - HTTP requests to API
+- serde / serde_json - serialization
+- base64 - Basic auth encoding
+- uuid - filename generation for export
+"#.to_string();
+
+        let text_viewer = cx.new(|cx| TextViewer::new("About".to_string(), about_text, cx));
+
+        workspace.update(cx, |workspace, cx| {
+            workspace.add_item_to_active_pane(
+                Box::new(text_viewer) as Box<dyn workspace::ItemHandle>,
+                None,
+                true,
+                window,
+                cx,
+            );
+        });
+
+        self.status = "About opened".to_string();
+        cx.notify();
+    }
 }
 
 impl Render for SqlApiExplorerPanel {
@@ -985,8 +1102,17 @@ impl Render for SqlApiExplorerPanel {
                     .items_center()
                     .child(Label::new("🗄️ SQL API Explorer").size(LabelSize::Large))
                     .child(
-                        Button::new("refresh", "Refresh")
-                            .on_click(cx.listener(|this, _, _window, cx| this.refresh(cx))),
+                        h_flex()
+                            .gap_2()
+                            .child(
+                                Button::new("refresh", "Refresh")
+                                    .on_click(cx.listener(|this, _, _window, cx| this.refresh(cx))),
+                            ).child(
+                                Button::new("about", "About")
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.open_about(window, cx);
+                                    })),
+                            ),
                     ),
             )
             .child(
@@ -2213,6 +2339,68 @@ impl Focusable for DdlViewer {
 impl EventEmitter<()> for DdlViewer {}
 
 impl workspace::Item for DdlViewer {
+    type Event = ();
+
+    fn tab_content(&self, _params: TabContentParams, _window: &Window, _cx: &App) -> AnyElement {
+        Label::new(self.title.clone()).into_any_element()
+    }
+
+    fn tab_content_text(&self, _detail: usize, _cx: &App) -> SharedString {
+        SharedString::from(self.title.clone())
+    }
+}
+
+// ====================== GENERIC TEXT VIEWER ======================
+
+pub struct TextViewer {
+    focus_handle: FocusHandle,
+    title: String,
+    text: String,
+}
+
+impl TextViewer {
+    pub fn new(title: String, text: String, cx: &mut Context<Self>) -> Self {
+        Self {
+            focus_handle: cx.focus_handle(),
+            title,
+            text,
+        }
+    }
+
+    pub fn update_text(&mut self, text: String, cx: &mut Context<Self>) {
+        self.text = text;
+        cx.notify();
+    }
+}
+
+impl Render for TextViewer {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("text-viewer")
+            .track_focus(&self.focus_handle)
+            .size_full()
+            .overflow_y_scroll()
+            .overflow_x_scroll()
+            .p_4()
+            .bg(cx.theme().colors().editor_background)
+            .text_buffer(cx)
+            .cursor_text()
+            .child(
+                Label::new(&self.text)
+                    .size(LabelSize::Small)
+            )
+    }
+}
+
+impl Focusable for TextViewer {
+    fn focus_handle(&self, _cx: &App) -> FocusHandle {
+        self.focus_handle.clone()
+    }
+}
+
+impl EventEmitter<()> for TextViewer {}
+
+impl workspace::Item for TextViewer {
     type Event = ();
 
     fn tab_content(&self, _params: TabContentParams, _window: &Window, _cx: &App) -> AnyElement {
