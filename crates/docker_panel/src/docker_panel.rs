@@ -70,7 +70,7 @@ impl DockerPanel {
             containers: vec![],
             images: vec![],
             volumes: vec![],
-            status: "Не обновлялось".to_string(),
+            status: "Not updated".to_string(),
             focus_handle: cx.focus_handle(),
             workspace: workspace.downgrade(),
             containers_expanded: true,
@@ -139,7 +139,7 @@ impl DockerPanel {
     }
 
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
-        self.status = format!("Обновление... {}", Local::now().format("%H:%M:%S"));
+        self.status = format!("Updating... {}", Local::now().format("%H:%M:%S"));
 
         // === Containers ===
         let output = DockerPanel::docker_cmd()
@@ -196,8 +196,8 @@ impl DockerPanel {
                 self.container_info_expanded
                     .retain(|id, _| self.containers.iter().any(|c| &c.id == id));
             }
-            Ok(_) => self.status = "docker ps вернул ошибку".to_string(),
-            Err(e) => self.status = format!("docker не найден: {}", e),
+            Ok(_) => self.status = "docker ps error".to_string(),
+            Err(e) => self.status = format!("docker not found: {}", e),
         }
 
         // === Images ===
@@ -239,7 +239,7 @@ impl DockerPanel {
             _ => {}
         }
 
-        self.status = format!("Обновлено {}", Local::now().format("%H:%M:%S"));
+        self.status = format!("Updated {}", Local::now().format("%H:%M:%S"));
         cx.notify();
     }
 
@@ -254,19 +254,19 @@ impl DockerPanel {
     fn show_logs(&self, window: &mut Window, cx: &mut Context<Self>, container_id: &str) {
         let short_id = container_id.chars().take(12).collect::<String>();
         eprintln!(
-            "🐳 [Docker Logs] show_logs вызван для контейнера: {}",
+            " [Docker Logs] show_logs called for container: {}",
             short_id
         );
 
         let Some(workspace) = self.workspace.upgrade() else {
-            eprintln!("❌ [Docker Logs] Не удалось upgrade workspace");
+            eprintln!(" [Docker Logs] Failed to upgrade workspace");
             return;
         };
 
         let spawn_task = SpawnInTerminal {
             id: TaskId(format!("docker-logs-{}", short_id)),
-            full_label: format!("🐳 Logs — {}", short_id),
-            label: format!("🐳 Logs — {}", short_id),
+            full_label: format!(" Logs — {}", short_id),
+            label: format!(" Logs — {}", short_id),
             command_label: format!("docker logs -f {}", short_id),
             command: Some("docker".into()),
             args: vec!["logs".into(), "-f".into(), container_id.into()],
@@ -284,7 +284,7 @@ impl DockerPanel {
             save: SaveStrategy::None,
         };
 
-        eprintln!("✅ [Docker Logs] SpawnInTerminal создан");
+        eprintln!(" [Docker Logs] SpawnInTerminal created");
 
         let task_handle = workspace.update(cx, |workspace, cx| {
             let _ = workspace.toggle_panel_focus::<TerminalPanel>(window, cx);
@@ -304,38 +304,38 @@ impl DockerPanel {
                 match task_handle.await {
                     Ok(weak_terminal) => {
                         eprintln!(
-                            "✅ [Docker Logs] Терминал успешно создан: {:?}",
+                            " [Docker Logs] Terminal created successfully: {:?}",
                             weak_terminal
                         );
                     }
                     Err(e) => {
-                        eprintln!("❌ [Docker Logs] Ошибка при создании терминала: {:?}", e);
+                        eprintln!(" [Docker Logs] Error creating terminal: {:?}", e);
                     }
                 }
             }
         })
         .detach();
 
-        eprintln!("🏁 [Docker Logs] show_logs завершён");
+        eprintln!(" [Docker Logs] show_logs finished");
     }
 
     fn exec_container(&self, window: &mut Window, cx: &mut Context<Self>, container_id: &str, has_bash: bool) {
         let short_id = container_id.chars().take(12).collect::<String>();
         let shell = if has_bash { "/bin/bash" } else { "/bin/sh" };
         eprintln!(
-            "🐳 [Docker Exec] exec_container вызван для контейнера: {} (bash: {})",
+            " [Docker Exec] exec_container called for container: {} (bash: {})",
             short_id, has_bash
         );
 
         let Some(workspace) = self.workspace.upgrade() else {
-            eprintln!("❌ [Docker Exec] Не удалось upgrade workspace");
+            eprintln!(" [Docker Exec] Failed to upgrade workspace");
             return;
         };
 
         let spawn_task = SpawnInTerminal {
             id: TaskId(format!("docker-exec-{}", short_id)),
-            full_label: format!("🐳 Exec — {}", short_id),
-            label: format!("🐳 Exec — {}", short_id),
+            full_label: format!(" Exec — {}", short_id),
+            label: format!(" Exec — {}", short_id),
             command_label: format!("docker exec -it {} {}", short_id, shell),
             command: Some("docker".into()),
             args: vec![
@@ -358,7 +358,7 @@ impl DockerPanel {
             save: SaveStrategy::None,
         };
 
-        eprintln!("✅ [Docker Exec] SpawnInTerminal создан");
+        eprintln!(" [Docker Exec] SpawnInTerminal created");
 
         let task_handle = workspace.update(cx, |workspace, cx| {
             let _ = workspace.toggle_panel_focus::<TerminalPanel>(window, cx);
@@ -378,19 +378,19 @@ impl DockerPanel {
                 match task_handle.await {
                     Ok(weak_terminal) => {
                         eprintln!(
-                            "✅ [Docker Exec] Терминал успешно создан: {:?}",
+                            " [Docker Exec] Terminal created successfully: {:?}",
                             weak_terminal
                         );
                     }
                     Err(e) => {
-                        eprintln!("❌ [Docker Exec] Ошибка при создании терминала: {:?}", e);
+                        eprintln!(" [Docker Exec] Error creating terminal: {:?}", e);
                     }
                 }
             }
         })
         .detach();
 
-        eprintln!("🏁 [Docker Exec] exec_container завершён");
+        eprintln!(" [Docker Exec] exec_container finished");
     }
 }
 
@@ -407,7 +407,7 @@ impl Render for DockerPanel {
                 h_flex()
                     .justify_between()
                     .items_center()
-                    .child(Label::new("🐳 Docker").size(LabelSize::Large))
+                    .child(Label::new(" Docker").size(LabelSize::Large))
                     .child(
                         Button::new("refresh", "Refresh")
                             .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
@@ -902,10 +902,10 @@ impl Panel for DockerPanel {
 actions!(docker_panel, [ToggleDockerPanel]);
 
 pub fn init(cx: &mut App) {
-    println!("🚀 DockerPanel init called!");
+    println!("DockerPanel init called!");
 
     cx.observe_new(|workspace: &mut Workspace, mut window, cx| {
-        println!("📦 Creating DockerPanel instance");
+        println!("Creating DockerPanel instance");
         workspace.register_action(
             |workspace: &mut Workspace, _action: &ToggleDockerPanel, window, cx| {
                 workspace.toggle_panel_focus::<DockerPanel>(window, cx);
