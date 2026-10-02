@@ -81,7 +81,7 @@ impl DockerPanel {
     }
 
     fn docker_cmd() -> std::process::Command {
-        let mut cmd = std::process::Command::new("docker");
+        let cmd = std::process::Command::new("docker");
 
         #[cfg(target_os = "windows")]
         {
