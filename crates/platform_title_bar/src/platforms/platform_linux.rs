@@ -222,6 +222,7 @@ impl RenderOnce for WindowControl {
             .rounded_2xl()
             .w_5()
             .h_5()
+            .rounded_sm()
             .hover(|this| this.bg(self.style.background_hover))
             .active(|this| this.bg(self.style.background_hover))
             .child(icon)

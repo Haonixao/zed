@@ -17307,24 +17307,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sql_api_explorer"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "fs",
- "futures-lite 2.6.1",
- "gpui",
- "http_client",
- "serde",
- "serde_json",
- "ui",
- "ui_input",
- "uuid",
- "workspace",
-]
-
-[[package]]
 name = "sqlez"
 version = "0.1.0"
 dependencies = [
@@ -23176,7 +23158,6 @@ dependencies = [
  "smol",
  "snippet_provider",
  "snippets_ui",
- "sql_api_explorer",
  "svg_preview",
  "sysinfo 0.37.2",
  "system_specs",

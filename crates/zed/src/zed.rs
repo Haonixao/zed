@@ -163,7 +163,6 @@ actions!(
 );
 
 use docker_panel;
-use sql_api_explorer;
 #[cfg(debug_assertions)]
 actions!(
     dev,
@@ -315,7 +314,6 @@ pub fn init(cx: &mut App) {
         open_about_window(cx);
     });
     docker_panel::init(cx);
-    sql_api_explorer::init(cx);
 }
 
 fn bind_on_window_closed(cx: &mut App) -> Option<gpui::Subscription> {
