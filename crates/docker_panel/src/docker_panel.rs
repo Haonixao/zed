@@ -60,7 +60,6 @@ pub struct DockerPanel {
     container_groups_expanded: std::collections::HashMap<String, bool>,
 }
 
-
 impl DockerPanel {
     pub fn new(cx: &mut Context<Self>, _window: &mut Window, workspace: Entity<Workspace>) -> Self {
         let mut this = Self {
@@ -91,11 +90,7 @@ impl DockerPanel {
         cmd
     }
 
-    fn render_container(
-        &self,
-        c: &Container,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    fn render_container(&self, c: &Container, cx: &mut Context<Self>) -> impl IntoElement {
         let is_running = c.state == "running";
         let short_id = c.id.chars().take(12).collect::<String>();
 
@@ -109,28 +104,22 @@ impl DockerPanel {
             .gap_2()
             // Имя + статус
             .child(
-                h_flex()
-                    .justify_between()
-                    .items_center()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .child(
-                                Label::new(&c.names)
-                                    .weight(FontWeight::MEDIUM),
-                            )
-                            .child(
-                                Label::new(if is_running { "R" } else { "S" })
-                                    .size(LabelSize::Small)
-                                    .color(if is_running {
-                                        Color::Success
-                                    } else {
-                                        Color::Error
-                                    })
-                                    .weight(FontWeight::SEMIBOLD),
-                            ),
-                    ),
+                h_flex().justify_between().items_center().child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(Label::new(&c.names).weight(FontWeight::MEDIUM))
+                        .child(
+                            Label::new(if is_running { "R" } else { "S" })
+                                .size(LabelSize::Small)
+                                .color(if is_running {
+                                    Color::Success
+                                } else {
+                                    Color::Error
+                                })
+                                .weight(FontWeight::SEMIBOLD),
+                        ),
+                ),
             )
             // Info-блок (раскрывающийся)
             .child(
@@ -141,9 +130,7 @@ impl DockerPanel {
                     .px_2()
                     .py_1()
                     .rounded_md()
-                    .hover(|style| {
-                        style.bg(cx.theme().colors().ghost_element_hover)
-                    })
+                    .hover(|style| style.bg(cx.theme().colors().ghost_element_hover))
                     .on_click(cx.listener({
                         let id = c.id.clone();
                         move |this, _, _, cx| {
@@ -194,11 +181,7 @@ impl DockerPanel {
                             .child(
                                 Label::new(format!(
                                     "Ports: {}",
-                                    if c.ports.is_empty() {
-                                        "no"
-                                    } else {
-                                        &c.ports
-                                    }
+                                    if c.ports.is_empty() { "no" } else { &c.ports }
                                 ))
                                 .size(LabelSize::Small)
                                 .color(Color::Muted),
@@ -211,91 +194,73 @@ impl DockerPanel {
                 h_flex()
                     .gap_1()
                     .child(
-                        IconButton::new(
-                            format!("start-{}", short_id),
-                            IconName::PlayFilled,
-                        )
-                        .icon_size(IconSize::Small)
-                        .disabled(is_running)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            move |this, _, _, cx| {
-                                this.docker_action("start", id.as_str(), cx);
-                            }
-                        })),
+                        IconButton::new(format!("start-{}", short_id), IconName::PlayFilled)
+                            .icon_size(IconSize::Small)
+                            .disabled(is_running)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                move |this, _, _, cx| {
+                                    this.docker_action("start", id.as_str(), cx);
+                                }
+                            })),
                     )
                     .child(
-                        IconButton::new(
-                            format!("stop-{}", short_id),
-                            IconName::Stop,
-                        )
-                        .icon_size(IconSize::Small)
-                        .disabled(!is_running)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            move |this, _, _, cx| {
-                                this.docker_action("stop", id.as_str(), cx);
-                            }
-                        })),
+                        IconButton::new(format!("stop-{}", short_id), IconName::Stop)
+                            .icon_size(IconSize::Small)
+                            .disabled(!is_running)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                move |this, _, _, cx| {
+                                    this.docker_action("stop", id.as_str(), cx);
+                                }
+                            })),
                     )
                     .child(
-                        IconButton::new(
-                            format!("restart-{}", short_id),
-                            IconName::RotateCw,
-                        )
-                        .icon_size(IconSize::Small)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            move |this, _, _, cx| {
-                                this.docker_action("restart", id.as_str(), cx);
-                            }
-                        })),
+                        IconButton::new(format!("restart-{}", short_id), IconName::RotateCw)
+                            .icon_size(IconSize::Small)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                move |this, _, _, cx| {
+                                    this.docker_action("restart", id.as_str(), cx);
+                                }
+                            })),
                     )
                     .child(
-                        IconButton::new(
-                            format!("logs-{}", short_id),
-                            IconName::Notepad,
-                        )
-                        .icon_size(IconSize::Small)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            move |this, _, window, cx| {
-                                this.show_logs(window, cx, &id);
-                            }
-                        })),
+                        IconButton::new(format!("logs-{}", short_id), IconName::Notepad)
+                            .icon_size(IconSize::Small)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                move |this, _, window, cx| {
+                                    this.show_logs(window, cx, &id);
+                                }
+                            })),
                     )
                     .child(
-                        IconButton::new(
-                            format!("exec-{}", short_id),
-                            IconName::Terminal,
-                        )
-                        .icon_size(IconSize::Small)
-                        .disabled(!is_running)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            let has_bash = c.has_bash;
-                            move |this, _, window, cx| {
-                                this.exec_container(window, cx, &id, has_bash);
-                            }
-                        })),
+                        IconButton::new(format!("exec-{}", short_id), IconName::Terminal)
+                            .icon_size(IconSize::Small)
+                            .disabled(!is_running)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                let has_bash = c.has_bash;
+                                move |this, _, window, cx| {
+                                    this.exec_container(window, cx, &id, has_bash);
+                                }
+                            })),
                     )
                     .child(
-                        IconButton::new(
-                            format!("remove-{}", short_id),
-                            IconName::Trash,
-                        )
-                        .icon_size(IconSize::Small)
-                        .on_click(cx.listener({
-                            let id = c.id.clone();
-                            move |this, _, _, cx| {
-                                let _ = DockerPanel::docker_cmd()
-                                    .arg("rm")
-                                    .arg("-f")
-                                    .arg(&id)
-                                    .output();
-                                this.refresh(cx);
-                            }
-                        })),
+                        IconButton::new(format!("remove-{}", short_id), IconName::Trash)
+                            .icon_size(IconSize::Small)
+                            .on_click(cx.listener({
+                                let id = c.id.clone();
+                                move |this, _, _, cx| {
+                                    let _ = DockerPanel::docker_cmd()
+                                        .arg("rm")
+                                        .arg("-f")
+                                        .arg(&id)
+                                        .output();
+                                    this.refresh(cx);
+                                }
+                            })),
                     ),
             )
     }
@@ -359,137 +324,140 @@ impl DockerPanel {
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         self.status = format!("Updating... {}", Local::now().format("%H:%M:%S"));
 
-            // === Containers ===
-            let ps_output = DockerPanel::docker_cmd()
-                .arg("ps")
-                .arg("-a")
-                .arg("--format")
-                .arg("{{.ID}}")
-                .output();
+        // === Containers ===
+        let ps_output = DockerPanel::docker_cmd()
+            .arg("ps")
+            .arg("-a")
+            .arg("--format")
+            .arg("{{.ID}}")
+            .output();
 
-            let container_ids: Vec<String> = match ps_output {
-                Ok(out) if out.status.success() => {
-                    String::from_utf8_lossy(&out.stdout)
-                        .lines()
-                        .filter(|l| !l.trim().is_empty())
-                        .map(|l| l.trim().to_string())
-                        .collect()
-                }
-                Ok(_) => {
-                    self.status = "docker ps error".to_string();
-                    return;
-                }
-                Err(e) => {
-                    self.status = format!("docker not found: {}", e);
-                    return;
-                }
-            };
-
-            if container_ids.is_empty() {
-                self.containers.clear();
-                self.status = format!("Updated {}", Local::now().format("%H:%M:%S"));
-                cx.notify();
+        let container_ids: Vec<String> = match ps_output {
+            Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(|l| l.trim().to_string())
+                .collect(),
+            Ok(_) => {
+                self.status = "docker ps error".to_string();
                 return;
             }
+            Err(e) => {
+                self.status = format!("docker not found: {}", e);
+                return;
+            }
+        };
 
-            let mut inspect_cmd = DockerPanel::docker_cmd();
-            inspect_cmd.arg("inspect").args(&container_ids).arg("--format").arg("{{json .}}");
+        if container_ids.is_empty() {
+            self.containers.clear();
+            self.status = format!("Updated {}", Local::now().format("%H:%M:%S"));
+            cx.notify();
+            return;
+        }
 
-            match inspect_cmd.output() {
-                Ok(out) if out.status.success() => {
-                    let text = String::from_utf8_lossy(&out.stdout);
+        let mut inspect_cmd = DockerPanel::docker_cmd();
+        inspect_cmd
+            .arg("inspect")
+            .args(&container_ids)
+            .arg("--format")
+            .arg("{{json .}}");
 
-                    let containers_data: Vec<serde_json::Value> = text
-                        .lines()
-                        .filter(|l| !l.trim().is_empty())
-                        .filter_map(|line| serde_json::from_str(line).ok())
-                        .collect();
+        match inspect_cmd.output() {
+            Ok(out) if out.status.success() => {
+                let text = String::from_utf8_lossy(&out.stdout);
 
-                    self.containers = containers_data
-                        .iter()
-                        .filter_map(|c| {
-                            let id = c["Id"].as_str()?.to_string();
+                let containers_data: Vec<serde_json::Value> = text
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .filter_map(|line| serde_json::from_str(line).ok())
+                    .collect();
 
-                            let names = c["Name"]
-                                .as_str()
-                                .unwrap_or("")
-                                .trim_start_matches('/')
-                                .to_string();
+                self.containers = containers_data
+                    .iter()
+                    .filter_map(|c| {
+                        let id = c["Id"].as_str()?.to_string();
 
-                            let image = c["Config"]["Image"]
-                                .as_str()
-                                .unwrap_or("unknown")
-                                .to_string();
+                        let names = c["Name"]
+                            .as_str()
+                            .unwrap_or("")
+                            .trim_start_matches('/')
+                            .to_string();
 
-                            let state = c["State"]["Status"]
-                                .as_str()
-                                .unwrap_or("unknown")
-                                .to_string();
+                        let image = c["Config"]["Image"]
+                            .as_str()
+                            .unwrap_or("unknown")
+                            .to_string();
 
-                            let labels = c["Config"]["Labels"]
-                                .as_object();
+                        let state = c["State"]["Status"]
+                            .as_str()
+                            .unwrap_or("unknown")
+                            .to_string();
 
-                            let project_name = labels
-                                .and_then(|l| l.get("com.docker.compose.project"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("Other")
-                                .to_string();
+                        let labels = c["Config"]["Labels"].as_object();
 
-                            // Порты
-                            let mut ports_str = String::new();
-                            if let Some(bindings) = c["HostConfig"]["PortBindings"].as_object() {
-                                for (container_port, host_bindings) in bindings {
-                                    if let Some(arr) = host_bindings.as_array() {
-                                        for binding in arr {
-                                            if let Some(h_port) = binding["HostPort"].as_str() {
-                                                if !ports_str.is_empty() {
-                                                    ports_str.push_str(", ");
-                                                }
-                                                ports_str
-                                                    .push_str(&format!("{}->{}", h_port, container_port));
+                        let project_name = labels
+                            .and_then(|l| l.get("com.docker.compose.project"))
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Other")
+                            .to_string();
+
+                        // Порты
+                        let mut ports_str = String::new();
+                        if let Some(bindings) = c["HostConfig"]["PortBindings"].as_object() {
+                            for (container_port, host_bindings) in bindings {
+                                if let Some(arr) = host_bindings.as_array() {
+                                    for binding in arr {
+                                        if let Some(h_port) = binding["HostPort"].as_str() {
+                                            if !ports_str.is_empty() {
+                                                ports_str.push_str(", ");
                                             }
+                                            ports_str.push_str(&format!(
+                                                "{}->{}",
+                                                h_port, container_port
+                                            ));
                                         }
                                     }
                                 }
                             }
+                        }
 
-                            // Проверка bash только для running
-                            let has_bash = if state == "running" {
-                                DockerPanel::docker_cmd()
-                                    .arg("exec")
-                                    .arg(&id)
-                                    .arg("which")
-                                    .arg("bash")
-                                    .output()
-                                    .map(|o| o.status.success())
-                                    .unwrap_or(false)
-                            } else {
-                                false
-                            };
+                        // Проверка bash только для running
+                        let has_bash = if state == "running" {
+                            DockerPanel::docker_cmd()
+                                .arg("exec")
+                                .arg(&id)
+                                .arg("which")
+                                .arg("bash")
+                                .output()
+                                .map(|o| o.status.success())
+                                .unwrap_or(false)
+                        } else {
+                            false
+                        };
 
-                            Some(Container {
-                                id,
-                                names,
-                                image,
-                                state,
-                                ports: ports_str,
-                                has_bash,
-                                project_name,
-                            })
+                        Some(Container {
+                            id,
+                            names,
+                            image,
+                            state,
+                            ports: ports_str,
+                            has_bash,
+                            project_name,
                         })
-                        .collect();
+                    })
+                    .collect();
 
-                    // Очистка состояний раскрытия
-                    self.container_info_expanded
-                        .retain(|id, _| self.containers.iter().any(|c| &c.id == id));
-                    // Очистка состояний раскрытия групп: оставляем только те проекты,
-                    // которые реально присутствуют среди текущих контейнеров
-                    self.container_groups_expanded
-                        .retain(|p, _| self.containers.iter().any(|c| &c.project_name == p));
-                }
-                Ok(_) => self.status = "docker inspect error".to_string(),
-                Err(e) => self.status = format!("docker inspect failed: {}", e),
+                // Очистка состояний раскрытия
+                self.container_info_expanded
+                    .retain(|id, _| self.containers.iter().any(|c| &c.id == id));
+                // Очистка состояний раскрытия групп: оставляем только те проекты,
+                // которые реально присутствуют среди текущих контейнеров
+                self.container_groups_expanded
+                    .retain(|p, _| self.containers.iter().any(|c| &c.project_name == p));
             }
+            Ok(_) => self.status = "docker inspect error".to_string(),
+            Err(e) => self.status = format!("docker inspect failed: {}", e),
+        }
 
         // === Images ===
         let images_output = DockerPanel::docker_cmd()
@@ -539,6 +507,15 @@ impl DockerPanel {
             .arg(action)
             .arg(container_id)
             .output();
+        self.refresh(cx);
+    }
+
+    fn docker_group_action(&mut self, action: &str, project_name: &str, cx: &mut Context<Self>) {
+        for c in self.containers.iter() {
+            if c.project_name == project_name {
+                let _ = DockerPanel::docker_cmd().arg(action).arg(&c.id).output();
+            }
+        }
         self.refresh(cx);
     }
 
@@ -610,7 +587,13 @@ impl DockerPanel {
         eprintln!(" [Docker Logs] show_logs finished");
     }
 
-    fn exec_container(&self, window: &mut Window, cx: &mut Context<Self>, container_id: &str, has_bash: bool) {
+    fn exec_container(
+        &self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        container_id: &str,
+        has_bash: bool,
+    ) {
         let short_id = container_id.chars().take(12).collect::<String>();
         let shell = if has_bash { "/bin/bash" } else { "/bin/sh" };
         eprintln!(
@@ -686,7 +669,6 @@ impl DockerPanel {
 }
 
 impl Render for DockerPanel {
-
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Группировка контейнеров по project_name
         let mut grouped: std::collections::HashMap<String, Vec<&Container>> =
@@ -785,74 +767,123 @@ impl Render for DockerPanel {
                                     ),
                             )
                             .when(self.containers_expanded, |this| {
-                                this.child(
-                                    v_flex().gap_2().children(
-                                        group_names.iter().map(|project_name| {
-                                            let items = grouped.get(project_name).unwrap();
-                                            let is_group_expanded = self
-                                                .container_groups_expanded
-                                                .get(project_name)
-                                                .copied()
-                                                .unwrap_or(false);
+                                this.child(v_flex().gap_2().children(group_names.iter().map(
+                                    |project_name| {
+                                        let items = grouped.get(project_name).unwrap();
+                                        let is_group_expanded = self
+                                            .container_groups_expanded
+                                            .get(project_name)
+                                            .copied()
+                                            .unwrap_or(false);
 
-                                            v_flex()
-                                                .gap_1()
-                                                .child(
-                                                    h_flex()
-                                                        .id(format!("group-{}", project_name))
-                                                        .justify_between()
-                                                        .items_center()
-                                                        .px_2()
-                                                        .py_1()
-                                                        .rounded_md()
-                                                        .hover(|style| {
-                                                            style.bg(cx.theme().colors().ghost_element_hover)
-                                                        })
-                                                        .on_click(cx.listener({
-                                                            let p = project_name.clone();
-                                                            move |this, _, _, cx| {
-                                                                this.toggle_container_group(&p, cx);
-                                                            }
-                                                        }))
-                                                        .child(
-                                                            h_flex()
-                                                                .gap_2()
-                                                                .items_center()
-                                                                .child(
-                                                                    Icon::new(if is_group_expanded {
-                                                                        IconName::ChevronDown
-                                                                    } else {
-                                                                        IconName::ChevronRight
-                                                                    })
-                                                                    .size(IconSize::Small),
-                                                                )
-                                                                .child(
-                                                                    Label::new(project_name.clone())
-                                                                        .size(LabelSize::Small)
-                                                                        .weight(FontWeight::SEMIBOLD),
-                                                                ),
-                                                        )
-                                                        .child(
-                                                            Label::new(items.len().to_string())
-                                                                .size(LabelSize::Small)
-                                                                .color(Color::Muted),
-                                                        ),
-                                                )
-                                                .when(is_group_expanded, |this| {
-                                                    this.child(
-                                                        v_flex()
+                                        v_flex()
+                                            .gap_1()
+                                            .child(
+                                                h_flex()
+                                                    .id(format!("group-{}", project_name))
+                                                    .justify_between()
+                                                    .items_center()
+                                                    .px_2()
+                                                    .py_1()
+                                                    .rounded_md()
+                                                    .hover(|style| {
+                                                        style.bg(cx
+                                                            .theme()
+                                                            .colors()
+                                                            .ghost_element_hover)
+                                                    })
+                                                    .on_click(cx.listener({
+                                                        let p = project_name.clone();
+                                                        move |this, _, _, cx| {
+                                                            this.toggle_container_group(&p, cx);
+                                                        }
+                                                    }))
+                                                    .child(
+                                                        h_flex()
                                                             .gap_2()
-                                                            .pl_4()
-                                                            .children(
-                                                                items
-                                                                    .iter()
-                                                                    .map(|c| self.render_container(c, cx)),
+                                                            .items_center()
+                                                            .child(
+                                                                Icon::new(if is_group_expanded {
+                                                                    IconName::ChevronDown
+                                                                } else {
+                                                                    IconName::ChevronRight
+                                                                })
+                                                                .size(IconSize::Small),
+                                                            )
+                                                            .child(
+                                                                Label::new(project_name.clone())
+                                                                    .size(LabelSize::Small)
+                                                                    .weight(FontWeight::SEMIBOLD),
                                                             ),
                                                     )
-                                                })
-                                        })
-                                    ),
-                                )
+                                                    .child(
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .items_center()
+                                                            .child(
+                                                                Label::new(items.len().to_string())
+                                                                    .size(LabelSize::Small)
+                                                                    .color(Color::Muted),
+                                                            )
+                                                            .child(
+                                                                IconButton::new(
+                                                                    format!(
+                                                                        "group-start-{}",
+                                                                        project_name
+                                                                    ),
+                                                                    IconName::PlayFilled,
+                                                                )
+                                                                .icon_size(IconSize::Small)
+                                                                .disabled(
+                                                                    items.iter().all(|c| {
+                                                                        c.state == "running"
+                                                                    }),
+                                                                )
+                                                                .on_click(cx.listener({
+                                                                    let p = project_name.clone();
+                                                                    move |this, _, _, cx| {
+                                                                        this.docker_group_action(
+                                                                            "start", &p, cx,
+                                                                        );
+                                                                    }
+                                                                })),
+                                                            )
+                                                            .child(
+                                                                IconButton::new(
+                                                                    format!(
+                                                                        "group-stop-{}",
+                                                                        project_name
+                                                                    ),
+                                                                    IconName::Stop,
+                                                                )
+                                                                .icon_size(IconSize::Small)
+                                                                .disabled(
+                                                                    !items.iter().any(|c| {
+                                                                        c.state == "running"
+                                                                    }),
+                                                                )
+                                                                .on_click(cx.listener({
+                                                                    let p = project_name.clone();
+                                                                    move |this, _, _, cx| {
+                                                                        this.docker_group_action(
+                                                                            "stop", &p, cx,
+                                                                        );
+                                                                    }
+                                                                })),
+                                                            ),
+                                                    ),
+                                            )
+                                            .when(is_group_expanded, |this| {
+                                                this.child(
+                                                    v_flex().gap_2().pl_4().children(
+                                                        items
+                                                            .iter()
+                                                            .map(|c| self.render_container(c, cx)),
+                                                    ),
+                                                )
+                                            })
+                                    },
+                                )))
                             })
                             // ==================== IMAGES ====================
                             .child(
