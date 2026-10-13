@@ -1,6 +1,6 @@
 ## Diffs
 
-## **UI:**
+### **UI:**
 
 - More rounded elements
 - Custom cursor blink animations for editor and terminal
