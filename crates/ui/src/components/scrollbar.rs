@@ -1285,8 +1285,11 @@ impl<T: ScrollableHandle> Element for ScrollbarElement<T> {
                                                 left: -BORDER_WIDTH,
                                                 ..Default::default()
                                             },
-                                        }),
-                                    ScrollbarStyle::Editor => scroll_track_bounds,
+                                        })
+                                        .dilate(-SCROLLBAR_PADDING),
+                                    ScrollbarStyle::Editor => {
+                                        scroll_track_bounds.dilate(-SCROLLBAR_PADDING)
+                                    }
                                 };
 
                                 let available_space =
@@ -1506,11 +1509,7 @@ impl<T: ScrollableHandle> Element for ScrollbarElement<T> {
 
                     window.paint_quad(quad(
                         *thumb_bounds,
-                        match style {
-                            ScrollbarStyle::Regular => Corners::all(Pixels::MAX)
-                                .clamp_radii_for_quad_size(thumb_bounds.size),
-                            ScrollbarStyle::Editor => Corners::default(),
-                        },
+                        Corners::all(Pixels::MAX).clamp_radii_for_quad_size(thumb_bounds.size),
                         thumb_color,
                         Edges::default(),
                         Hsla::transparent_black(),

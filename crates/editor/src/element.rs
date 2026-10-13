@@ -6145,9 +6145,10 @@ impl EditorElement {
                         };
                         window.paint_quad(quad(
                             thumb_bounds,
-                            Corners::default(),
+                            Corners::all(Pixels::MAX)
+                                .clamp_radii_for_quad_size(thumb_bounds.size),
                             scrollbar_thumb_color,
-                            scrollbar_edges,
+                            Edges::default(),
                             cx.theme().colors().scrollbar_thumb_border,
                             BorderStyle::Solid,
                         ));
@@ -10392,7 +10393,8 @@ impl ScrollbarLayout {
     const BORDER_WIDTH: Pixels = px(1.0);
     const LINE_MARKER_HEIGHT: Pixels = px(2.0);
     const MIN_MARKER_HEIGHT: Pixels = px(5.0);
-    const MIN_THUMB_SIZE: Pixels = px(25.0);
+    const MIN_THUMB_SIZE: Pixels = px(40.0);
+    const THUMB_INSET: Pixels = px(4.0);
 
     fn new(
         scrollbar_track_hitbox: Hitbox,
@@ -10409,7 +10411,7 @@ impl ScrollbarLayout {
         // exclude the content size here so that the thumb aligns with the content.
         let track_length = track_bounds.size.along(axis) - content_offset;
 
-        Self::new_with_hitbox_and_track_length(
+        let mut layout = Self::new_with_hitbox_and_track_length(
             scrollbar_track_hitbox,
             track_length,
             viewport_size,
@@ -10419,7 +10421,11 @@ impl ScrollbarLayout {
             scroll_position,
             show_thumb,
             axis,
-        )
+        );
+        layout.thumb_bounds = layout
+            .thumb_bounds
+            .map(|bounds| bounds.dilate(-Self::THUMB_INSET));
+        layout
     }
 
     fn for_minimap(
