@@ -6803,11 +6803,11 @@ impl GitPanel {
             .h_full()
             .gap_px()
             .p_1p5()
-            .opacity(0.6)
-            .hover(|s| s.opacity(1.0))
             .child(
                 IconButton::new("expand-commit-editor", IconName::MaximizeAlt)
                     .icon_size(IconSize::Small)
+                    .icon_color(Color::Hidden)
+                    .hover_color(Color::Muted)
                     .tooltip({
                         move |_window, cx| {
                             Tooltip::for_action_in(
@@ -6834,6 +6834,8 @@ impl GitPanel {
 
                 IconButton::new("fill-commit-editor", icon)
                     .icon_size(IconSize::Small)
+                    .icon_color(Color::Hidden)
+                    .hover_color(Color::Muted)
                     .tooltip({
                         move |_window, cx| {
                             Tooltip::for_action_in(
@@ -7430,7 +7432,10 @@ impl GitPanel {
             self._repo_subscriptions.push(cx.subscribe(
                 &active_repository,
                 |this, _repo, event, cx| {
-                    if let RepositoryEvent::GraphEvent(_, _) = event {
+                    if matches!(
+                        event,
+                        RepositoryEvent::GraphEvent(_, _) | RepositoryEvent::TagsChanged
+                    ) {
                         if this.active_tab == GitPanelTab::History {
                             this.fetch_commit_history_entries(cx);
                         }
