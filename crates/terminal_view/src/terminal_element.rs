@@ -396,7 +396,7 @@ pub struct TerminalElement {
     workspace: WeakEntity<Workspace>,
     focus: FocusHandle,
     focused: bool,
-    cursor_visible: bool,
+    cursor_opacity: f32,
     interactivity: Interactivity,
     mode: TerminalMode,
     block_below_cursor: Option<Rc<BlockProperties>>,
@@ -417,7 +417,7 @@ impl TerminalElement {
         workspace: WeakEntity<Workspace>,
         focus: FocusHandle,
         focused: bool,
-        cursor_visible: bool,
+        cursor_opacity: f32,
         block_below_cursor: Option<Rc<BlockProperties>>,
         mode: TerminalMode,
     ) -> TerminalElement {
@@ -427,7 +427,7 @@ impl TerminalElement {
             workspace,
             focused,
             focus: focus.clone(),
-            cursor_visible,
+            cursor_opacity,
             block_below_cursor,
             mode,
             interactivity: Default::default(),
@@ -1495,6 +1495,8 @@ impl Element for TerminalElement {
                     None
                 } else {
                     let focused = self.focused;
+                    let cursor_opacity = self.cursor_opacity;
+                    let blink_style = EditorSettings::get_global(cx).cursor_animation.blink_style;
                     ime_cursor_bounds.map(move |bounds| {
                         let (shape, text) = match cursor.shape {
                             CursorShape::Block if !focused => (EditorCursorShape::Hollow, None),
@@ -1507,14 +1509,17 @@ impl Element for TerminalElement {
                             CursorShape::Hidden => unreachable!(),
                         };
 
-                        CursorLayout::new(
+                        let mut cursor = CursorLayout::new(
                             bounds.origin,
                             bounds.size.width,
                             bounds.size.height,
                             theme.players().local().cursor,
                             shape,
                             text,
-                        )
+                        );
+                        cursor.set_opacity(cursor_opacity);
+                        cursor.set_blink_style(blink_style);
+                        cursor
                     })
                 };
 
@@ -1731,11 +1736,16 @@ impl Element for TerminalElement {
                             .log_err();
                     }
 
-                    if self.cursor_visible
+                    if self.cursor_opacity > 0.0
                         && marked_text_cloned.is_none()
                         && let Some(mut cursor) = original_cursor
                     {
                         cursor.paint(origin, window, cx);
+                        // Keep repainting frame by frame while the cursor is
+                        // fading in or out.
+                        if self.cursor_opacity < 1.0 {
+                            window.request_animation_frame();
+                        }
                     }
 
                     if let Some(mut element) = block_below_cursor_element {

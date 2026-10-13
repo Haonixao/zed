@@ -1415,7 +1415,7 @@ fn appearance_page() -> SettingsPage {
         ]
     }
 
-    fn cursor_section() -> [SettingsPageItem; 7] {
+    fn cursor_section() -> [SettingsPageItem; 8] {
         [
             SettingsPageItem::SectionHeader("Cursor"),
             SettingsPageItem::SettingItem(SettingItem {
@@ -1466,6 +1466,31 @@ fn appearance_page() -> SettingsPage {
                             .cursor_animation
                             .get_or_insert_default()
                             .enabled = value;
+                    },
+                }),
+                metadata: None,
+                files: USER,
+            }),
+            SettingsPageItem::SettingItem(SettingItem {
+                title: "Cursor Blink Style",
+                description: "The visual style of the cursor blink: smooth fade or collapse to a thin bar.",
+                field: Box::new(SettingField {
+                    organization_override: None,
+                    json_path: Some("cursor_animation.blink_style"),
+                    pick: |settings_content| {
+                        settings_content
+                            .editor
+                            .cursor_animation
+                            .as_ref()?
+                            .blink_style
+                            .as_ref()
+                    },
+                    write: |settings_content, value, _| {
+                        settings_content
+                            .editor
+                            .cursor_animation
+                            .get_or_insert_default()
+                            .blink_style = value;
                     },
                 }),
                 metadata: None,

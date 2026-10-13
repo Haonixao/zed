@@ -23,8 +23,9 @@ use crate::{
         HighlightKey, HighlightedChunk, ToDisplayPoint,
     },
     editor_settings::{
-        CurrentLineHighlight, DocumentColorsRenderMode, GitGutterWidth, Minimap, MinimapThumb,
-        MinimapThumbBorder, ScrollBeyondLastLine, ScrollbarAxes, ScrollbarDiagnostics, ShowMinimap,
+        BlinkStyle, CurrentLineHighlight, DocumentColorsRenderMode, GitGutterWidth, Minimap,
+        MinimapThumb, MinimapThumbBorder, ScrollBeyondLastLine, ScrollbarAxes,
+        ScrollbarDiagnostics, ShowMinimap,
     },
     git::blame::{BlameRenderer, GitBlame, GlobalBlameRenderer},
     hover_popover::{
@@ -1159,6 +1160,8 @@ impl EditorElement {
             let mut request_animation_frame = false;
 
             let show_local_cursors = editor.show_local_cursors(window, cx);
+            let blink_opacity = editor.blink_manager.read(cx).cursor_opacity();
+            let blink_fading = blink_opacity > 0.0 && blink_opacity < 1.0;
             let animation_settings = EditorSettings::get_global(cx).cursor_animation;
             let animation_enabled = animation_settings.enabled && !cx.reduce_motion();
             let animation_context = animation_enabled.then(|| {
@@ -1330,6 +1333,8 @@ impl EditorElement {
                         block_text,
                         cursor_name: None,
                         animated_corners: None,
+                        opacity: blink_opacity,
+                        blink_style: EditorSettings::get_global(cx).cursor_animation.blink_style,
                     };
                     let cursor_name = selection.user_name.clone().map(|name| CursorName {
                         string: name,
@@ -1361,6 +1366,10 @@ impl EditorElement {
                     }
                     cursors.push(cursor);
                 }
+            }
+
+            if blink_fading {
+                window.request_animation_frame();
             }
 
             if animation_enabled {
@@ -6148,8 +6157,7 @@ impl EditorElement {
                         };
                         window.paint_quad(quad(
                             thumb_bounds,
-                            Corners::all(Pixels::MAX)
-                                .clamp_radii_for_quad_size(thumb_bounds.size),
+                            Corners::all(Pixels::MAX).clamp_radii_for_quad_size(thumb_bounds.size),
                             scrollbar_thumb_color,
                             Edges::default(),
                             cx.theme().colors().scrollbar_thumb_border,
@@ -10981,6 +10989,21 @@ pub struct CursorLayout {
     block_text: Option<ShapedLine>,
     cursor_name: Option<AnyElement>,
     animated_corners: Option<[gpui::Point<Pixels>; 4]>,
+    /// Blink fade progress at layout time (1.0 = fully visible).
+    opacity: f32,
+    blink_style: BlinkStyle,
+}
+
+impl CursorLayout {
+    /// Overrides the cursor opacity, used for the terminal's blink fade.
+    pub fn set_opacity(&mut self, opacity: f32) {
+        self.opacity = opacity;
+    }
+
+    /// Sets how the cursor blinks (fade or collapse).
+    pub fn set_blink_style(&mut self, blink_style: BlinkStyle) {
+        self.blink_style = blink_style;
+    }
 }
 
 #[derive(Debug)]
@@ -11008,6 +11031,8 @@ impl CursorLayout {
             block_text,
             cursor_name: None,
             animated_corners: None,
+            opacity: 1.0,
+            blink_style: BlinkStyle::Fade,
         }
     }
 
@@ -11020,14 +11045,32 @@ impl CursorLayout {
 
     fn bounds(&self, origin: gpui::Point<Pixels>) -> Bounds<Pixels> {
         match self.shape {
-            CursorShape::Bar => Bounds {
-                origin: self.origin + origin,
-                size: size(px(2.0), self.line_height),
-            },
-            CursorShape::Block | CursorShape::Hollow => Bounds {
-                origin: self.origin + origin,
-                size: size(self.block_width, self.line_height),
-            },
+            CursorShape::Bar => {
+                let bar_height = if self.blink_style == BlinkStyle::Collapse {
+                    self.line_height * self.opacity
+                } else {
+                    self.line_height
+                };
+                Bounds {
+                    origin: self.origin
+                        + origin
+                        + gpui::Point::new(Pixels::ZERO, self.line_height - bar_height),
+                    size: size(px(2.0), bar_height),
+                }
+            }
+            CursorShape::Block | CursorShape::Hollow => {
+                let block_width = if self.blink_style == BlinkStyle::Collapse {
+                    self.block_width * self.opacity
+                } else {
+                    self.block_width
+                };
+                Bounds {
+                    origin: self.origin
+                        + origin
+                        + point((self.block_width - block_width) / 2., Pixels::ZERO),
+                    size: size(block_width, self.line_height),
+                }
+            }
             CursorShape::Underline => Bounds {
                 origin: self.origin
                     + origin
@@ -11079,6 +11122,7 @@ impl CursorLayout {
 
     pub fn paint(&mut self, origin: gpui::Point<Pixels>, window: &mut Window, cx: &mut App) {
         let bounds = window.pixel_snap_bounds(self.bounds(origin));
+        let color = self.color.opacity(self.opacity);
 
         if let Some(corners) = self.animated_corners {
             let mut builder = gpui::PathBuilder::fill();
@@ -11087,7 +11131,7 @@ impl CursorLayout {
                 if let Some(name) = &mut self.cursor_name {
                     name.paint(window, cx);
                 }
-                window.paint_path(path, self.color);
+                window.paint_path(path, color);
 
                 if !animated_corners_overlap_target(bounds, &corners) {
                     return;
@@ -11096,9 +11140,9 @@ impl CursorLayout {
         } else {
             //Draw background or border quad
             let cursor = if matches!(self.shape, CursorShape::Hollow) {
-                outline(bounds, self.color, BorderStyle::Solid)
+                outline(bounds, color, BorderStyle::Solid)
             } else {
-                fill(bounds, self.color)
+                fill(bounds, color)
             };
 
             if let Some(name) = &mut self.cursor_name {
@@ -11108,7 +11152,10 @@ impl CursorLayout {
             window.paint_quad(cursor);
         }
 
-        if let Some(block_text) = &self.block_text {
+        // With the collapse blink style the block shrinks to a bar, so the
+        // inverted character would stick out — show it only at full opacity.
+        let block_text_visible = self.blink_style == BlinkStyle::Fade || self.opacity >= 1.0;
+        if block_text_visible && let Some(block_text) = &self.block_text {
             block_text
                 .paint(
                     self.origin + origin,

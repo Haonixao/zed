@@ -914,9 +914,20 @@ impl TerminalView {
         match TerminalSettings::get_global(cx).blinking {
             TerminalBlink::Off => true,
             TerminalBlink::TerminalControlled => {
-                !self.blinking_terminal_enabled || self.blink_manager.read(cx).visible()
+                !self.blinking_terminal_enabled
+                    || self.blink_manager.read(cx).cursor_opacity() > 0.0
             }
-            TerminalBlink::On => self.blink_manager.read(cx).visible(),
+            TerminalBlink::On => self.blink_manager.read(cx).cursor_opacity() > 0.0,
+        }
+    }
+
+    /// Returns the opacity of the terminal cursor (0.0–1.0), factoring in
+    /// whether the cursor should be shown at all for the current mode.
+    pub fn cursor_opacity(&self, focused: bool, cx: &mut Context<Self>) -> f32 {
+        if self.should_show_cursor(focused, cx) {
+            self.blink_manager.read(cx).cursor_opacity()
+        } else {
+            0.0
         }
     }
 
@@ -1511,7 +1522,7 @@ impl Render for TerminalView {
                         self.workspace.clone(),
                         self.focus_handle.clone(),
                         focused,
-                        self.should_show_cursor(focused, cx),
+                        self.cursor_opacity(focused, cx),
                         self.block_below_cursor.clone(),
                         self.mode.clone(),
                     ))

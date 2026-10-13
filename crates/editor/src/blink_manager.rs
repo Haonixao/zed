@@ -1,7 +1,11 @@
 use gpui::Context;
 use settings::SettingsStore;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
 use ui::App;
+
+/// How long the fade transition of cursor visibility takes.
+const CURSOR_FADE_DURATION: Duration = Duration::from_millis(300);
 
 pub struct BlinkManager {
     blink_interval: Duration,
@@ -12,6 +16,8 @@ pub struct BlinkManager {
     visible: bool,
     /// Whether the blinking is currently enabled.
     enabled: bool,
+    /// When the current visibility phase (visible or hidden) started.
+    phase_started_at: Instant,
     /// Whether the blinking is enabled in the settings.
     blink_enabled_in_settings: fn(&App) -> bool,
 }
@@ -34,6 +40,7 @@ impl BlinkManager {
             blinking_paused: false,
             visible: true,
             enabled: false,
+            phase_started_at: Instant::now(),
             blink_enabled_in_settings,
         }
     }
@@ -66,6 +73,7 @@ impl BlinkManager {
         if (self.blink_enabled_in_settings)(cx) {
             if epoch == self.blink_epoch && self.enabled && !self.blinking_paused {
                 self.visible = !self.visible;
+                self.phase_started_at = Instant::now();
                 cx.notify();
 
                 let epoch = self.next_blink_epoch();
@@ -86,6 +94,9 @@ impl BlinkManager {
     pub fn show_cursor(&mut self, cx: &mut Context<BlinkManager>) {
         if !self.visible {
             self.visible = true;
+            // Backdate the phase start so the cursor is rendered fully
+            // visible right away, without fading in.
+            self.phase_started_at = Instant::now() - CURSOR_FADE_DURATION;
             cx.notify();
         }
     }
@@ -111,6 +122,22 @@ impl BlinkManager {
 
     pub fn visible(&self) -> bool {
         self.visible
+    }
+
+    /// Returns the cursor opacity (0.0–1.0) based on the current blink
+    /// phase. When blinking is disabled, the cursor is always fully visible.
+    pub fn cursor_opacity(&self) -> f32 {
+        if !self.enabled {
+            return 1.0;
+        }
+        let progress = (self.phase_started_at.elapsed().as_secs_f32()
+            / CURSOR_FADE_DURATION.as_secs_f32())
+        .min(1.0);
+        if self.visible {
+            progress
+        } else {
+            1.0 - progress
+        }
     }
 
     #[cfg(test)]

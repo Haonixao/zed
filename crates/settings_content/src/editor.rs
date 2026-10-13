@@ -373,6 +373,10 @@ pub struct CursorAnimationSettingsContent {
     ///
     /// Default: false
     pub enabled: Option<bool>,
+    /// How the cursor blinks.
+    ///
+    /// Default: fade
+    pub blink_style: Option<BlinkStyle>,
 }
 
 // Toolbar related settings
@@ -647,6 +651,30 @@ pub enum CurrentLineHighlight {
     Line,
     // Highlight the full line.
     All,
+}
+
+/// The visual style of the cursor blink animation.
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    JsonSchema,
+    MergeFrom,
+    strum::VariantArray,
+    strum::VariantNames,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BlinkStyle {
+    /// The cursor smoothly fades in and out.
+    #[default]
+    Fade,
+    /// The cursor collapses from its edges to a thin vertical bar and back.
+    Collapse,
 }
 
 /// When to populate a new search's query based on the text under the cursor.

@@ -1,3 +1,10 @@
+## Diffs
+
+## **UI:**
+
+- More rounded elements
+- Custom cursor blink animations for editor and terminal
+
 ### **Custom crates**:
 
 #### Docker Panel (`crates/docker_panel`)

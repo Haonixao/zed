@@ -9971,7 +9971,7 @@ impl Editor {
     }
 
     pub fn show_local_cursors(&self, window: &mut Window, cx: &mut App) -> bool {
-        (self.read_only(cx) || self.blink_manager.read(cx).visible())
+        (self.read_only(cx) || self.blink_manager.read(cx).cursor_opacity() > 0.0)
             && self.focus_handle.is_focused(window)
     }
 

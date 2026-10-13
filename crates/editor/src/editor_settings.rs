@@ -4,11 +4,11 @@ use gpui::App;
 use language::CursorShape;
 use project::project_settings::DiagnosticSeverity;
 pub use settings::{
-    CodeLens, CompletionDetailAlignment, CompletionMenuItemKind, CurrentLineHighlight, DelayMs,
-    DiffViewStyle, DisplayIn, DocumentColorsRenderMode, DoubleClickInMultibuffer, GitGutterWidth,
-    GoToDefinitionFallback, GoToDefinitionScrollStrategy, MinimapThumb, MinimapThumbBorder,
-    MultiCursorModifier, OpenResultsIn, ScrollBeyondLastLine, ScrollbarDiagnostics,
-    SeedQuerySetting, ShowMinimap, SnippetSortOrder,
+    BlinkStyle, CodeLens, CompletionDetailAlignment, CompletionMenuItemKind, CurrentLineHighlight,
+    DelayMs, DiffViewStyle, DisplayIn, DocumentColorsRenderMode, DoubleClickInMultibuffer,
+    GitGutterWidth, GoToDefinitionFallback, GoToDefinitionScrollStrategy, MinimapThumb,
+    MinimapThumbBorder, MultiCursorModifier, OpenResultsIn, ScrollBeyondLastLine,
+    ScrollbarDiagnostics, SeedQuerySetting, ShowMinimap, SnippetSortOrder,
 };
 use settings::{RegisterSetting, RelativeLineNumbers, Settings};
 use ui::scrollbars::ShowScrollbar;
@@ -77,6 +77,7 @@ pub struct EditorSettings {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct CursorAnimationSettings {
     pub enabled: bool,
+    pub blink_style: BlinkStyle,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -230,6 +231,7 @@ impl Settings for EditorSettings {
             cursor_shape: editor.cursor_shape.map(Into::into),
             cursor_animation: CursorAnimationSettings {
                 enabled: cursor_animation.enabled.unwrap(),
+                blink_style: cursor_animation.blink_style.unwrap_or_default(),
             },
             current_line_highlight: editor.current_line_highlight.unwrap(),
             selection_highlight: editor.selection_highlight.unwrap(),
